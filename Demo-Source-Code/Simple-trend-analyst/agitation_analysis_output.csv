@@ -1,0 +1,9 @@
+resident_id,date,agitation_score,depression_score,intervention_type,moving_avg,trend
+R001,2025-08-01,7,6,,,stable
+R001,2025-08-02,6,5,music_therapy,,stable
+R001,2025-08-03,5,4,,6.0,stable
+R001,2025-08-04,4,3,,5.0,falling
+R002,2025-08-01,3,2,,,stable
+R002,2025-08-02,5,3,environment_change,,stable
+R002,2025-08-03,4,2,,4.0,stable
+R002,2025-08-04,3,1,,4.0,stable
