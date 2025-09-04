@@ -1,0 +1,6 @@
+- Must installed VSCode, NodeJS, React
+- Open folder using VSCode
+- Open Terminal
+- Type "npm install"
+- Type "npm run dev"
+- Click on "http://localhost:5173/" in Terminal
