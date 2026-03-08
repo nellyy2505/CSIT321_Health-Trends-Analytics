@@ -33,28 +33,43 @@ def get_health_data(sub: str) -> dict | None:
         item = r.get("Item")
         if not item:
             return None
-        return {
-            "patient": _to_json_friendly(item.get("patient") or {}),
-            "clinical": _to_json_friendly(item.get("clinical") or {}),
-            "trend": _to_json_friendly(item.get("trend") or {}),
+        # Support both new 4-section and legacy 3-section format
+        result = {
+            "keyInformation": _to_json_friendly(item.get("keyInformation") or item.get("key_information") or {}),
+            "patientContext": _to_json_friendly(item.get("patientContext") or item.get("patient") or {}),
+            "clinicalMeasurements": _to_json_friendly(item.get("clinicalMeasurements") or item.get("clinical") or {}),
+            "trendAndRisk": _to_json_friendly(item.get("trendAndRisk") or item.get("trend") or {}),
         }
+        rec = item.get("recommendations")
+        if isinstance(rec, dict):
+            result["recommendations"] = _to_json_friendly(rec)
+        return result
     except ClientError:
         return None
 
 
-def put_health_data(sub: str, patient: dict, clinical: dict, trend: dict) -> None:
-    """Save health data for user. Overwrites existing."""
+def put_health_data(
+    sub: str,
+    key_information: dict,
+    patient_context: dict,
+    clinical_measurements: dict,
+    trend_and_risk: dict,
+    recommendations: dict | None = None,
+) -> None:
+    """Save health data for user. Overwrites existing. recommendations optional: { actions, diet, exercise, risks }."""
     now = datetime.now(timezone.utc).isoformat()
+    item = {
+        "sub": sub,
+        "keyInformation": key_information,
+        "patientContext": patient_context,
+        "clinicalMeasurements": clinical_measurements,
+        "trendAndRisk": trend_and_risk,
+        "updated_at": now,
+    }
+    if recommendations and isinstance(recommendations, dict):
+        item["recommendations"] = {k: str(v) for k, v in recommendations.items() if v is not None}
     try:
-        _get_table().put_item(
-            Item={
-                "sub": sub,
-                "patient": patient,
-                "clinical": clinical,
-                "trend": trend,
-                "updated_at": now,
-            }
-        )
+        _get_table().put_item(Item=item)
     except ClientError as e:
         import logging
         logging.getLogger(__name__).warning("DynamoDB put_health_data failed: %s", e)
