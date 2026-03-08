@@ -6,116 +6,35 @@ import { useState, useEffect } from "react";
 import { HEALTH_SCAN_RESULT_KEY } from "../constants";
 import { getMyData, saveMyData } from "../services/api";
 
-// Initial fake data (will be copied into state so user can edit)
-const INITIAL_PATIENT = {
-  age: 58,
-  sex: "Female",
-  knownConditions: "Hypertension, Type 2 diabetes",
-  currentMedication: "Metformin 500mg, Lisinopril 10mg",
-  height: "165",
-  heightUnit: "cm",
-  weight: "72",
-  weightUnit: "kg",
-  bmi: "26.4",
-  smokingStatus: "Non-smoker",
-  alcoholStatus: "Occasional",
-  pregnancyStatus: "",
-};
-const INITIAL_CLINICAL = {
-  bloodPressureSystolic: "128",
-  bloodPressureDiastolic: "82",
-  heartRate: "76",
-  temperature: "36.6",
-  oxygenSaturation: "98",
-  weight: "72",
-  bmi: "26.4",
-};
-const INITIAL_TREND = {
-  recency: "Recent (within 2 weeks)",
-  trend: "Stable",
-  severity: "Mild (slightly above normal range)",
-  abnormalCount: "2",
-  symptoms: "None reported",
+const SECTION_TITLES = {
+  keyInformation: "Key information from Health Scan",
+  patientContext: "Patient Context",
+  clinicalMeasurements: "Clinical Measurements",
+  trendAndRisk: "Trend and Risk Indicators",
 };
 
-const SEX_OPTIONS = ["Female", "Male", "Prefer not to say"];
-const SMOKING_OPTIONS = ["Non-smoker", "Smoker", "Former smoker", "Prefer not to say"];
-const ALCOHOL_OPTIONS = ["None", "Occasional", "Moderate", "Heavy", "Prefer not to say"];
-const PREGNANCY_OPTIONS = ["", "Not applicable", "Yes", "No", "Prefer not to say"];
-const TREND_OPTIONS = ["Stable", "Increasing", "Decreasing", "Unknown"];
-const SEVERITY_OPTIONS = [
-  "Normal",
-  "Mild (slightly above normal range)",
-  "Moderate",
-  "Severe (far outside normal range)",
-  "Unknown",
-];
-
-// Row: view mode shows value; edit mode shows input or select
-function DataRow({
-  label,
-  value,
-  unknown,
-  isEditing,
-  type = "text",
-  options,
-  editValue,
-  onChange,
-}) {
-  const isUnknown = unknown || (value != null && value !== "" ? false : true);
-  const display =
-    isUnknown ? "Unknown" : Array.isArray(value) ? value.join(", ") : value;
-
-  if (!isEditing) {
-    return (
-      <div className="flex flex-wrap items-baseline justify-between gap-2 py-2 border-b border-gray-100 last:border-0">
-        <span className="text-gray-600 text-sm font-medium">{label}</span>
-        <span
-          className={`text-sm font-medium ${isUnknown ? "text-gray-400 italic" : "text-gray-900"}`}
-        >
-          {display}
-        </span>
-      </div>
-    );
-  }
-
-  // Edit mode
-  const val = editValue ?? (isUnknown ? "" : value);
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-gray-100 last:border-0">
-      <span className="text-gray-600 text-sm font-medium shrink-0">{label}</span>
-      {type === "number" && (
-        <input
-          type="number"
-          value={val}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-28 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary/30 focus:border-primary"
-        />
-      )}
-      {type === "select" && (
-        <select
-          value={val}
-          onChange={(e) => onChange(e.target.value)}
-          className="min-w-[140px] px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary/30 focus:border-primary"
-        >
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt || "Unknown"}
-            </option>
-          ))}
-        </select>
-      )}
-      {type === "text" && (
-        <input
-          type="text"
-          value={val}
-          onChange={(e) => onChange(e.target.value)}
-          className="min-w-[160px] px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary/30 focus:border-primary"
-        />
-      )}
-    </div>
-  );
-}
+const SECTION_ICONS = {
+  keyInformation: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  patientContext: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  ),
+  clinicalMeasurements: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+  trendAndRisk: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+    </svg>
+  ),
+};
 
 function SectionCard({ title, icon, children }) {
   return (
@@ -131,51 +50,165 @@ function SectionCard({ title, icon, children }) {
   );
 }
 
+/** Render a flexible key-value section; supports view and edit (change value, add row, remove row). */
+function FlexibleSection({ section, sectionKey, isEditing, onChange }) {
+  const entries = isEditing
+    ? Object.entries(section || {})
+    : Object.entries(section || {}).filter(([, v]) => v != null && String(v).trim() !== "");
+
+  const updateEntry = (label, value) => {
+    const next = { ...section };
+    if (value === "" || value == null) delete next[label];
+    else next[label] = String(value).trim();
+    onChange(next);
+  };
+
+  const removeEntry = (label) => {
+    const next = { ...section };
+    delete next[label];
+    onChange(next);
+  };
+
+  const addRow = () => {
+    const newLabel = "New field";
+    const next = { ...section, [newLabel]: "" };
+    onChange(next);
+  };
+
+  if (!isEditing && entries.length === 0) {
+    return <p className="text-gray-500 text-sm italic py-2">No information in this section.</p>;
+  }
+
+  return (
+    <div className="space-y-0">
+      {entries.map(([label, value], idx) => (
+        <div
+          key={`${label}-${idx}`}
+          className="flex flex-wrap items-baseline justify-between gap-2 py-2 border-b border-gray-100 last:border-0 group"
+        >
+          {!isEditing ? (
+            <>
+              <span className="text-gray-600 text-sm font-medium shrink-0">{label}</span>
+              <span className="text-sm font-medium text-gray-900 break-words text-right max-w-[60%]">
+                {String(value)}
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <input
+                  type="text"
+                  value={label}
+                  onChange={(e) => {
+                    const newLabel = e.target.value.trim() || label;
+                    if (newLabel !== label) {
+                      const next = { ...section };
+                      next[newLabel] = next[label];
+                      delete next[label];
+                      onChange(next);
+                    }
+                  }}
+                  className="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  placeholder="Label"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeEntry(label)}
+                  className="p-1 text-gray-400 hover:text-red-600 rounded transition"
+                  aria-label="Remove row"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => updateEntry(label, e.target.value)}
+                className="min-w-[140px] flex-1 max-w-[55%] px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="Value"
+              />
+            </>
+          )}
+        </div>
+      ))}
+      {isEditing && (
+        <button
+          type="button"
+          onClick={addRow}
+          className="mt-2 text-sm text-primary font-medium hover:underline flex items-center gap-1"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add row
+        </button>
+      )}
+    </div>
+  );
+}
+
 function loadHealthScanResult() {
   try {
     const saved = localStorage.getItem(HEALTH_SCAN_RESULT_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       return {
-        patient: { ...INITIAL_PATIENT, ...(parsed.patient || {}) },
-        clinical: { ...INITIAL_CLINICAL, ...(parsed.clinical || {}) },
-        trend: { ...INITIAL_TREND, ...(parsed.trend || {}) },
+        keyInformation: parsed.keyInformation || {},
+        patientContext: parsed.patientContext || parsed.patient || {},
+        clinicalMeasurements: parsed.clinicalMeasurements || parsed.clinical || {},
+        trendAndRisk: parsed.trendAndRisk || parsed.trend || {},
       };
     }
   } catch (_) {}
   return null;
 }
 
+function hasMeaningfulData(data) {
+  if (!data || typeof data !== "object") return false;
+  const hasVal = (obj) =>
+    obj && typeof obj === "object" && Object.values(obj).some((v) => v != null && String(v).trim() !== "");
+  return (
+    hasVal(data.keyInformation) ||
+    hasVal(data.patientContext) ||
+    hasVal(data.patient) ||
+    hasVal(data.clinicalMeasurements) ||
+    hasVal(data.clinical) ||
+    hasVal(data.trendAndRisk) ||
+    hasVal(data.trend)
+  );
+}
+
 export default function MyDataPage() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [patient, setPatient] = useState(INITIAL_PATIENT);
-  const [clinical, setClinical] = useState(INITIAL_CLINICAL);
-  const [trend, setTrend] = useState(INITIAL_TREND);
+  const [keyInformation, setKeyInformation] = useState({});
+  const [patientContext, setPatientContext] = useState({});
+  const [clinicalMeasurements, setClinicalMeasurements] = useState({});
+  const [trendAndRisk, setTrendAndRisk] = useState({});
 
-  // Load My Data from backend (per user); fallback to localStorage then defaults
   useEffect(() => {
     let cancelled = false;
     getMyData()
       .then((data) => {
         if (cancelled || !data) return;
-        const hasPatient = data.patient && Object.keys(data.patient).length > 0;
-        const hasClinical = data.clinical && Object.keys(data.clinical).length > 0;
-        const hasTrend = data.trend && Object.keys(data.trend).length > 0;
-        if (hasPatient || hasClinical || hasTrend) {
-          setPatient((p) => ({ ...p, ...(data.patient || {}) }));
-          setClinical((c) => ({ ...c, ...(data.clinical || {}) }));
-          setTrend((t) => ({ ...t, ...(data.trend || {}) }));
+        if (hasMeaningfulData(data)) {
+          setKeyInformation(data.keyInformation || {});
+          setPatientContext(data.patientContext || data.patient || {});
+          setClinicalMeasurements(data.clinicalMeasurements || data.clinical || {});
+          setTrendAndRisk(data.trendAndRisk || data.trend || {});
         }
       })
       .catch(() => {
         if (cancelled) return;
         const local = loadHealthScanResult();
         if (local) {
-          setPatient((p) => ({ ...p, ...local.patient }));
-          setClinical((c) => ({ ...c, ...local.clinical }));
-          setTrend((t) => ({ ...t, ...local.trend }));
+          setKeyInformation(local.keyInformation || {});
+          setPatientContext(local.patientContext || {});
+          setClinicalMeasurements(local.clinicalMeasurements || {});
+          setTrendAndRisk(local.trendAndRisk || {});
         }
       })
       .finally(() => {
@@ -186,18 +219,24 @@ export default function MyDataPage() {
 
   const handleSave = async () => {
     try {
-      await saveMyData({ patient, clinical, trend });
+      await saveMyData({
+        keyInformation,
+        patientContext,
+        clinicalMeasurements,
+        trendAndRisk,
+      });
       setIsEditing(false);
     } catch (_) {
-      // Still exit edit mode; data remains in state
       setIsEditing(false);
     }
   };
 
-  const patientWeightDisplay = `${patient.weight} ${patient.weightUnit}`;
-  const patientHeightDisplay = `${patient.height} ${patient.heightUnit}`;
-  const bloodPressureDisplay = `${clinical.bloodPressureSystolic}/${clinical.bloodPressureDiastolic} mmHg`;
-  const clinicalWeightDisplay = `${clinical.weight} kg`;
+  const sections = [
+    { key: "keyInformation", data: keyInformation, setData: setKeyInformation },
+    { key: "patientContext", data: patientContext, setData: setPatientContext },
+    { key: "clinicalMeasurements", data: clinicalMeasurements, setData: setClinicalMeasurements },
+    { key: "trendAndRisk", data: trendAndRisk, setData: setTrendAndRisk },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -218,258 +257,41 @@ export default function MyDataPage() {
             <p className="text-center text-gray-500 text-sm mb-4">Loading your data…</p>
           )}
 
+          {!loading &&
+            !Object.keys(keyInformation).length &&
+            !Object.keys(patientContext).length &&
+            !Object.keys(clinicalMeasurements).length &&
+            !Object.keys(trendAndRisk).length && (
+              <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                <p className="text-amber-800 font-medium mb-2">No data yet</p>
+                <p className="text-sm text-amber-700 mb-4">
+                  Go to <strong>Health Scan</strong>, upload a health record image (e.g. lab result, allergy panel), and we’ll extract and show the information here.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/health-scan")}
+                  className="bg-amber-500 text-white px-4 py-2 rounded-md font-medium hover:bg-amber-600 transition"
+                >
+                  Open Health Scan
+                </button>
+              </div>
+            )}
+
           <div className="space-y-6">
-            {/* 1) Patient Context */}
-            <SectionCard
-              title="Patient Context"
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              }
-            >
-              <DataRow
-                label="Age"
-                value={patient.age}
-                isEditing={isEditing}
-                type="number"
-                editValue={patient.age}
-                onChange={(v) => setPatient((p) => ({ ...p, age: v }))}
-              />
-              <DataRow
-                label="Sex"
-                value={patient.sex}
-                isEditing={isEditing}
-                type="select"
-                options={SEX_OPTIONS}
-                editValue={patient.sex}
-                onChange={(v) => setPatient((p) => ({ ...p, sex: v }))}
-              />
-              <DataRow
-                label="Known medical conditions"
-                value={patient.knownConditions}
-                isEditing={isEditing}
-                type="text"
-                editValue={patient.knownConditions}
-                onChange={(v) => setPatient((p) => ({ ...p, knownConditions: v }))}
-              />
-              <DataRow
-                label="Current medication"
-                value={patient.currentMedication}
-                isEditing={isEditing}
-                type="text"
-                editValue={patient.currentMedication}
-                onChange={(v) => setPatient((p) => ({ ...p, currentMedication: v }))}
-              />
-              {!isEditing ? (
-                <DataRow label="Height" value={patientHeightDisplay} />
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-gray-100">
-                  <span className="text-gray-600 text-sm font-medium">Height</span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={patient.height}
-                      onChange={(e) => setPatient((p) => ({ ...p, height: e.target.value }))}
-                      className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary/30"
-                    />
-                    <select
-                      value={patient.heightUnit}
-                      onChange={(e) => setPatient((p) => ({ ...p, heightUnit: e.target.value }))}
-                      className="px-2 py-1 text-sm border border-gray-300 rounded"
-                    >
-                      <option value="cm">cm</option>
-                      <option value="in">in</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-              {!isEditing ? (
-                <DataRow label="Weight" value={patientWeightDisplay} />
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-gray-100">
-                  <span className="text-gray-600 text-sm font-medium">Weight</span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={patient.weight}
-                      onChange={(e) => setPatient((p) => ({ ...p, weight: e.target.value }))}
-                      className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary/30"
-                    />
-                    <span className="text-sm text-gray-500">kg</span>
-                  </div>
-                </div>
-              )}
-              <DataRow
-                label="BMI"
-                value={patient.bmi}
-                isEditing={isEditing}
-                type="number"
-                editValue={patient.bmi}
-                onChange={(v) => setPatient((p) => ({ ...p, bmi: v }))}
-              />
-              <DataRow
-                label="Smoking status"
-                value={patient.smokingStatus}
-                isEditing={isEditing}
-                type="select"
-                options={SMOKING_OPTIONS}
-                editValue={patient.smokingStatus}
-                onChange={(v) => setPatient((p) => ({ ...p, smokingStatus: v }))}
-              />
-              <DataRow
-                label="Alcohol status"
-                value={patient.alcoholStatus}
-                isEditing={isEditing}
-                type="select"
-                options={ALCOHOL_OPTIONS}
-                editValue={patient.alcoholStatus}
-                onChange={(v) => setPatient((p) => ({ ...p, alcoholStatus: v }))}
-              />
-              <DataRow
-                label="Pregnancy status (if applicable)"
-                value={patient.pregnancyStatus}
-                unknown={!patient.pregnancyStatus}
-                isEditing={isEditing}
-                type="select"
-                options={PREGNANCY_OPTIONS}
-                editValue={patient.pregnancyStatus}
-                onChange={(v) => setPatient((p) => ({ ...p, pregnancyStatus: v }))}
-              />
-            </SectionCard>
-
-            {/* 2) Clinical Measurements */}
-            <SectionCard
-              title="Clinical Measurements (Vitals + Lab Results)"
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              }
-            >
-              {!isEditing ? (
-                <DataRow label="Blood pressure" value={bloodPressureDisplay} />
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-gray-100">
-                  <span className="text-gray-600 text-sm font-medium">Blood pressure</span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={clinical.bloodPressureSystolic}
-                      onChange={(e) => setClinical((c) => ({ ...c, bloodPressureSystolic: e.target.value }))}
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
-                    />
-                    <span className="text-gray-500">/</span>
-                    <input
-                      type="number"
-                      value={clinical.bloodPressureDiastolic}
-                      onChange={(e) => setClinical((c) => ({ ...c, bloodPressureDiastolic: e.target.value }))}
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
-                    />
-                    <span className="text-sm text-gray-500">mmHg</span>
-                  </div>
-                </div>
-              )}
-              <DataRow
-                label="Heart rate"
-                value={clinical.heartRate}
-                isEditing={isEditing}
-                type="number"
-                editValue={clinical.heartRate}
-                onChange={(v) => setClinical((c) => ({ ...c, heartRate: v }))}
-              />
-              <DataRow
-                label="Temperature"
-                value={clinical.temperature}
-                isEditing={isEditing}
-                type="number"
-                editValue={clinical.temperature}
-                onChange={(v) => setClinical((c) => ({ ...c, temperature: v }))}
-              />
-              <DataRow
-                label="Oxygen saturation (SpO₂)"
-                value={clinical.oxygenSaturation}
-                isEditing={isEditing}
-                type="number"
-                editValue={clinical.oxygenSaturation}
-                onChange={(v) => setClinical((c) => ({ ...c, oxygenSaturation: v }))}
-              />
-              {!isEditing ? (
-                <DataRow label="Weight" value={clinicalWeightDisplay} />
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-gray-100">
-                  <span className="text-gray-600 text-sm font-medium">Weight</span>
-                  <input
-                    type="number"
-                    value={clinical.weight}
-                    onChange={(e) => setClinical((c) => ({ ...c, weight: e.target.value }))}
-                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded"
-                  />
-                </div>
-              )}
-              <DataRow
-                label="BMI"
-                value={clinical.bmi}
-                isEditing={isEditing}
-                type="number"
-                editValue={clinical.bmi}
-                onChange={(v) => setClinical((c) => ({ ...c, bmi: v }))}
-              />
-            </SectionCard>
-
-            {/* 3) Trend and Risk Indicators */}
-            <SectionCard
-              title="Trend and Risk Indicators"
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              }
-            >
-              <DataRow
-                label="Recent vs old results (recency)"
-                value={trend.recency}
-                isEditing={isEditing}
-                type="text"
-                editValue={trend.recency}
-                onChange={(v) => setTrend((t) => ({ ...t, recency: v }))}
-              />
-              <DataRow
-                label="Trend over time"
-                value={trend.trend}
-                isEditing={isEditing}
-                type="select"
-                options={TREND_OPTIONS}
-                editValue={trend.trend}
-                onChange={(v) => setTrend((t) => ({ ...t, trend: v }))}
-              />
-              <DataRow
-                label="Severity (vs normal range)"
-                value={trend.severity}
-                isEditing={isEditing}
-                type="select"
-                options={SEVERITY_OPTIONS}
-                editValue={trend.severity}
-                onChange={(v) => setTrend((t) => ({ ...t, severity: v }))}
-              />
-              <DataRow
-                label="Multiple abnormal results combined"
-                value={trend.abnormalCount != null && trend.abnormalCount !== "" ? `${trend.abnormalCount} abnormal` : null}
-                unknown={trend.abnormalCount == null || trend.abnormalCount === ""}
-                isEditing={isEditing}
-                type="number"
-                editValue={trend.abnormalCount}
-                onChange={(v) => setTrend((t) => ({ ...t, abnormalCount: v }))}
-              />
-              <DataRow
-                label="Symptoms (if available)"
-                value={trend.symptoms}
-                isEditing={isEditing}
-                type="text"
-                editValue={trend.symptoms}
-                onChange={(v) => setTrend((t) => ({ ...t, symptoms: v }))}
-              />
-            </SectionCard>
+            {sections.map(({ key, data, setData }) => (
+              <SectionCard
+                key={key}
+                title={SECTION_TITLES[key]}
+                icon={SECTION_ICONS[key]}
+              >
+                <FlexibleSection
+                  section={data}
+                  sectionKey={key}
+                  isEditing={isEditing}
+                  onChange={setData}
+                />
+              </SectionCard>
+            ))}
           </div>
 
           <div className="flex justify-center gap-4 mt-10 pt-6 border-t border-gray-200 flex-wrap">

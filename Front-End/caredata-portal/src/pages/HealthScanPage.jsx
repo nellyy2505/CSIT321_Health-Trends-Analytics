@@ -2,65 +2,95 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
-import { analyzeHealthScanImage, saveMyData } from "../services/api";
+import { analyzeHealthScanImages, saveMyData } from "../services/api";
 import { HEALTH_SCAN_RESULT_KEY } from "../constants";
 
 const ACCEPT_IMAGE = "image/*";
 const MAX_SIZE_MB = 10;
+const MAX_IMAGES = 5;
 
 export default function HealthScanPage() {
   const navigate = useNavigate();
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
   const [error, setError] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [lastPromptSent, setLastPromptSent] = useState(null);
+  const [showPromptDetail, setShowPromptDetail] = useState(false);
+  const [analysisJustComplete, setAnalysisJustComplete] = useState(false);
   const inputRef = useRef(null);
 
   const handleFileChange = (e) => {
-    const selected = e.target.files?.[0];
+    const selected = Array.from(e.target.files || []);
     setError("");
-    if (!selected) {
-      setFile(null);
-      setPreview(null);
+    setAnalysisJustComplete(false);
+    setLastPromptSent(null);
+    if (selected.length === 0) {
+      setFiles([]);
+      setPreviews([]);
       return;
     }
-    if (selected.size > MAX_SIZE_MB * 1024 * 1024) {
-      setError(`File must be under ${MAX_SIZE_MB} MB.`);
-      setFile(null);
-      setPreview(null);
+    const oversized = selected.find((f) => f.size > MAX_SIZE_MB * 1024 * 1024);
+    if (oversized) {
+      setError(`Each file must be under ${MAX_SIZE_MB} MB.`);
+      setFiles([]);
+      setPreviews([]);
       return;
     }
-    setFile(selected);
-    const reader = new FileReader();
-    reader.onloadend = () => setPreview(reader.result);
-    reader.readAsDataURL(selected);
+    const next = selected.slice(0, MAX_IMAGES);
+    if (selected.length > MAX_IMAGES) setError(`Maximum ${MAX_IMAGES} images. Only the first ${MAX_IMAGES} were added.`);
+    setFiles(next);
+    const loadPreviews = next.map((file) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+    Promise.all(loadPreviews).then(setPreviews);
+    if (inputRef.current) inputRef.current.value = "";
   };
 
-  const clearFile = () => {
-    setFile(null);
-    setPreview(null);
+  const removeFile = (index) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+    setError("");
+  };
+
+  const clearAll = () => {
+    setFiles([]);
+    setPreviews([]);
     setError("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
-    if (!file) {
-      setError("Please select an image first.");
+    if (!files.length) {
+      setError("Please select at least one image.");
       return;
     }
     setError("");
     setIsAnalyzing(true);
     try {
-      const result = await analyzeHealthScanImage(file);
-      // Save to user account (DynamoDB) so My Data shows it
-      try {
-        await saveMyData(result);
-      } catch (_) {
-        // Fallback: keep in localStorage so My Data can still show it
-        localStorage.setItem(HEALTH_SCAN_RESULT_KEY, JSON.stringify(result));
+      const result = await analyzeHealthScanImages(files);
+      if (result.debug?.promptSent) {
+        console.log("[Health Scan] Prompt that was sent:", result.debug.promptSent);
+        setLastPromptSent(result.debug.promptSent);
+      } else {
+        setLastPromptSent(null);
       }
-      navigate("/mydata");
+      console.log("[Health Scan] ChatGPT/API response:", result);
+      console.log("[Health Scan] Recommendations in response:", result.recommendations ? "yes" : "no", result.recommendations);
+      const { debug, ...dataToSave } = result;
+      // Save to user account (DynamoDB) so My Data shows it (without debug)
+      try {
+        await saveMyData(dataToSave);
+      } catch (err) {
+        console.warn("[Health Scan] Save to server failed, using localStorage:", err?.response?.data || err.message);
+        localStorage.setItem(HEALTH_SCAN_RESULT_KEY, JSON.stringify(dataToSave));
+      }
+      setAnalysisJustComplete(true);
     } catch (err) {
       let msg = err.response?.data?.detail || err.message || "Analysis failed.";
       if (err.code === "ERR_NETWORK" || err.message?.includes("Connection refused") || err.message?.includes("Failed to fetch")) {
@@ -82,14 +112,14 @@ export default function HealthScanPage() {
             Health Scan
           </h1>
           <p className="text-gray-600 text-center mb-8">
-            Upload an image of your health record. We’ll analyze it and display insights and charts in My Data.
+            Upload 1–{MAX_IMAGES} images of your health records. We’ll analyze them and display insights in My Data.
           </p>
 
           <form onSubmit={handleAnalyze} className="space-y-6">
             {/* Upload area */}
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition cursor-pointer ${
-                file ? "border-primary bg-orange-50/30" : "border-gray-300 hover:border-primary"
+                files.length ? "border-primary bg-orange-50/30" : "border-gray-300 hover:border-primary"
               }`}
               onClick={() => inputRef.current?.click()}
             >
@@ -97,6 +127,7 @@ export default function HealthScanPage() {
                 ref={inputRef}
                 type="file"
                 accept={ACCEPT_IMAGE}
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -116,32 +147,51 @@ export default function HealthScanPage() {
                   />
                 </svg>
                 <span className="text-gray-700 font-medium">
-                  {file ? file.name : "Click or drag an image to upload"}
+                  {files.length ? `${files.length} image(s) selected` : "Click to upload (max " + MAX_IMAGES + " images)"}
                 </span>
                 <span className="text-gray-500 text-sm mt-1">
-                  PNG, JPG, or WEBP (max {MAX_SIZE_MB} MB)
+                  PNG, JPG, or WEBP (max {MAX_SIZE_MB} MB each)
                 </span>
               </div>
             </div>
 
-            {/* Preview */}
-            {preview && (
-              <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="w-full max-h-64 object-contain"
-                />
-                <button
-                  type="button"
-                  onClick={clearFile}
-                  className="absolute top-2 right-2 bg-gray-800/80 text-white rounded-full p-1.5 hover:bg-gray-900 transition"
-                  aria-label="Remove image"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+            {/* Previews */}
+            {previews.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Previews</span>
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {previews.map((src, i) => (
+                    <div key={i} className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 aspect-square">
+                      <img
+                        src={src}
+                        alt={`Preview ${i + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="absolute top-1 right-1 bg-gray-800/80 text-white rounded-full p-1 hover:bg-gray-900 transition"
+                        aria-label="Remove image"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      <span className="absolute bottom-1 left-1 text-xs text-white bg-black/50 rounded px-1.5 py-0.5">
+                        {files[i]?.name?.slice(0, 12)}{files[i]?.name?.length > 12 ? "…" : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -153,19 +203,68 @@ export default function HealthScanPage() {
 
             <button
               type="submit"
-              disabled={!file || isAnalyzing}
+              disabled={!files.length || isAnalyzing}
               className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isAnalyzing ? "Analyzing…" : "Analyze health record"}
+              {isAnalyzing ? "Analyzing…" : "Analyze health record" + (files.length > 1 ? "s" : "")}
             </button>
           </form>
+
+          {analysisJustComplete && (
+            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="font-medium text-green-800 mb-3">Analysis saved. View results in My Data.</p>
+              {lastPromptSent ? (
+                <div className="text-left">
+                  <button
+                    type="button"
+                    onClick={() => setShowPromptDetail((v) => !v)}
+                    className="text-sm font-medium text-green-700 hover:underline mb-2"
+                  >
+                    {showPromptDetail ? "Hide" : "Show"} prompt sent to ChatGPT (verify it&apos;s correct)
+                  </button>
+                  {showPromptDetail && (
+                    <div className="mt-2 space-y-3 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-700">System prompt:</span>
+                        <pre className="mt-1 p-3 bg-gray-100 rounded overflow-auto max-h-48 text-xs whitespace-pre-wrap break-words">
+                          {lastPromptSent.system}
+                        </pre>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">User text:</span>
+                        <pre className="mt-1 p-3 bg-gray-100 rounded overflow-auto text-xs whitespace-pre-wrap">
+                          {lastPromptSent.userText}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-amber-700">
+                  Prompt not returned — backend may be an older version. Restart or redeploy the backend to see the prompt here and get the new 4-section format.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setAnalysisJustComplete(false);
+                  setLastPromptSent(null);
+                  setShowPromptDetail(false);
+                  navigate("/mydata");
+                }}
+                className="mt-3 w-full bg-primary text-white py-2 rounded-md font-medium hover:bg-orange-600 transition"
+              >
+                Go to My Data
+              </button>
+            </div>
+          )}
 
           <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-5 text-sm text-gray-700">
             <h3 className="font-semibold mb-2">Guidelines</h3>
             <ul className="list-disc list-inside space-y-1">
-              <li>Use a clear photo or scan of your health record (lab results, discharge summary, etc.).</li>
-              <li>Supported formats: PNG, JPG, WEBP. Max size: {MAX_SIZE_MB} MB.</li>
-              <li>Analysis results and charts will appear under My Data.</li>
+              <li>Upload 1–{MAX_IMAGES} clear photos or scans (lab results, discharge summary, etc.).</li>
+              <li>Supported formats: PNG, JPG, WEBP. Max {MAX_SIZE_MB} MB per image.</li>
+              <li>Multiple images are combined into one summary in My Data.</li>
             </ul>
           </div>
         </div>

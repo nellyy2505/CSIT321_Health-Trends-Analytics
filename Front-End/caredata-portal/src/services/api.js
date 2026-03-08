@@ -80,10 +80,18 @@ export const getCurrentUser = async (token) => {
   return response.data;
 };
 
-// --- Health Scan: upload image, get structured health data from ChatGPT ---
-export const analyzeHealthScanImage = async (file) => {
+// --- Health Scan: upload 1–5 images, get structured health data from ChatGPT ---
+export const analyzeHealthScanImages = async (files) => {
+  const fileList = Array.isArray(files) ? files : [files];
+  const url = `${api.defaults.baseURL}/health-scan/analyze`;
+  console.log("[Health Scan] Sending request to API:", {
+    url,
+    method: "POST",
+    imageCount: fileList.length,
+    note: "Prompt is sent by the backend; check server/Lambda logs for '[Health Scan] Prompt sent'.",
+  });
   const formData = new FormData();
-  formData.append("image", file);
+  fileList.forEach((file) => formData.append("images", file));
   const response = await api.post("/health-scan/analyze", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -99,5 +107,11 @@ export const getMyData = async () => {
 /** Save My Data for current user (DynamoDB). */
 export const saveMyData = async (data) => {
   const response = await api.put("/mydata", data);
+  return response.data;
+};
+
+/** Get AI-generated recommendations (what to do, diet, risks) from stored My Data. */
+export const getRecommendations = async () => {
+  const response = await api.get("/mydata/recommendations");
   return response.data;
 };
