@@ -116,6 +116,18 @@ export const getRecommendations = async () => {
   return response.data;
 };
 
+/** Get user/facility settings (persists across devices). */
+export const getSettings = async () => {
+  const response = await api.get("/mydata/settings");
+  return response.data;
+};
+
+/** Save user/facility settings. */
+export const saveSettings = async (settings) => {
+  const response = await api.put("/mydata/settings", settings);
+  return response.data;
+};
+
 // --- Upload CSV (facility data) ---
 /** Upload CSV file; backend analyzes with ChatGPT and stores in history. Returns { uploadId, filename, analysis }. */
 export const uploadAndAnalyzeCSV = async (file) => {

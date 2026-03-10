@@ -11,6 +11,7 @@ import {
   getDashboardCSVData,
   getCareJourneyPatients,
   getHealthScanHistory,
+  getSettings,
 } from "../../services/api";
 
 const PRESETS = {
@@ -50,10 +51,62 @@ function formatDate(iso) {
   }
 }
 
+const SETTINGS_LABELS = {
+  firstName: "First Name",
+  lastName: "Last Name",
+  jobTitle: "Job Title",
+  facilityName: "Facility Name",
+  facilityType: "Facility Type",
+  facilityRegistration: "Registration / Accreditation",
+  abn: "ABN",
+  street: "Street",
+  suburb: "Suburb",
+  state: "State",
+  postcode: "Postcode",
+  bedCapacity: "Bed / Capacity",
+  contactEmail: "Contact Email",
+  contactPhone: "Phone",
+  emergencyContact: "Emergency Contact (24/7)",
+  delegatedContact: "Delegated / Backup Contact",
+  afterHoursContact: "After-Hours Contact",
+};
+
+const FACILITY_TYPE_LABELS = {
+  residential: "Residential Aged Care",
+  day_centre: "Day Centre",
+  respite: "Respite Care",
+  home_care: "Home Care",
+  other: "Other",
+};
+
 function buildReportHtml(data) {
-  const { myData, recommendations, uploadHistory, dashboardData, careJourneyPatients, healthScanHistory, options, selectedUploadId } = data;
+  const { myData, recommendations, uploadHistory, dashboardData, careJourneyPatients, healthScanHistory, options, selectedUploadId, settings } = data;
 
   const sections = [];
+
+  if (settings && typeof settings === "object") {
+    const rows = [];
+    Object.entries(SETTINGS_LABELS).forEach(([key, label]) => {
+      let value = settings[key];
+      if (key === "facilityType" && value) value = FACILITY_TYPE_LABELS[value] || value;
+      if (value != null && String(value).trim() !== "") {
+        rows.push({ label, value: String(value).trim() });
+      }
+    });
+    if (rows.length > 0) {
+      sections.push({
+        title: "Facility & User Information",
+        html: `
+          <table class="report-table">
+            <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <tbody>
+              ${rows.map((r) => `<tr><td>${escapeHtml(r.label)}</td><td>${escapeHtml(r.value)}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        `,
+      });
+    }
+  }
 
   if (options.myData && myData) {
     const rows = [];
@@ -307,6 +360,7 @@ export default function DocumentationPage() {
     setGenerating(true);
     try {
       const promises = {
+        settings: getSettings().catch(() => null),
         myData: (selectedOptions.myData || selectedOptions.charts || selectedOptions.aiRecommendations) ? getMyData() : Promise.resolve(null),
         recommendations: selectedOptions.aiRecommendations ? getRecommendations() : Promise.resolve(null),
         uploadHistory: selectedOptions.uploadHistory ? getUploadHistory() : Promise.resolve([]),
@@ -314,7 +368,8 @@ export default function DocumentationPage() {
         dashboardData: selectedOptions.facilityAnalytics && selectedUploadId ? getDashboardCSVData(selectedUploadId) : Promise.resolve(null),
         careJourneyPatients: selectedOptions.careJourney && selectedUploadId ? getCareJourneyPatients(selectedUploadId) : Promise.resolve(null),
       };
-      const [myData, recommendations, uploads, scans, dashboardData, careJourneyPatients] = await Promise.all([
+      const [settings, myData, recommendations, uploads, scans, dashboardData, careJourneyPatients] = await Promise.all([
+        promises.settings,
         promises.myData,
         promises.recommendations,
         promises.uploadHistory,
@@ -331,6 +386,14 @@ export default function DocumentationPage() {
         careJourneyPatients,
         options: selectedOptions,
         selectedUploadId,
+        settings: settings || (() => {
+          try {
+            const stored = localStorage.getItem("caredata_facility_settings");
+            return stored ? JSON.parse(stored) : null;
+          } catch {
+            return null;
+          }
+        })(),
       });
 
       const parser = new DOMParser();

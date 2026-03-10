@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../common/Navbar";
 import Footer from "../common/Footer";
 import MyDataSidebar from "./MyDataSidebar";
+import { getSettings, saveSettings } from "../../services/api";
 
 const SETTINGS_STORAGE_KEY = "caredata_facility_settings";
 
@@ -38,17 +39,36 @@ const FACILITY_TYPES = [
 export default function SettingPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, ...parsed }));
-      }
-    } catch {
-      // ignore parse errors
-    }
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    getSettings()
+      .then((data) => {
+        if (!cancelled && data && typeof data === "object") {
+          setSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, ...data }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          try {
+            const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              setSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, ...parsed }));
+            }
+          } catch {
+            // ignore
+          }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const handleChange = (e) => {
@@ -72,13 +92,24 @@ export default function SettingPage() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setError("");
     try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      await saveSettings(settings);
+      try {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      } catch {
+        // ignore
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      alert("Failed to save settings.");
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Failed to save settings.");
+      try {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -96,8 +127,17 @@ export default function SettingPage() {
             User & Facility Settings
           </h1>
           <p className="text-gray-600 text-center mb-8">
-            Manage your personal details, facility information, and contact preferences.
+            Manage your personal details, facility information, and contact preferences. Settings sync across devices when you are logged in.
           </p>
+
+          {loading && (
+            <p className="text-center text-gray-500 mb-6">Loading settings…</p>
+          )}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
 
           {/* User Profile */}
           <div className="flex items-center gap-10 mb-10">
@@ -330,7 +370,8 @@ export default function SettingPage() {
           <div className="flex justify-center items-center gap-4 mt-10">
             <button
               onClick={handleSave}
-              className="bg-orange-500 text-white px-6 py-2 rounded-md font-medium hover:bg-orange-600 transition"
+              disabled={loading}
+              className="bg-orange-500 text-white px-6 py-2 rounded-md font-medium hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Save Settings
             </button>
