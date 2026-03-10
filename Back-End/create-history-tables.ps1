@@ -34,5 +34,15 @@ aws dynamodb create-table `
   2>$null
 if ($LASTEXITCODE -eq 0) { Write-Host "  Created." -ForegroundColor Green } else { Write-Host "  (may already exist)" -ForegroundColor Yellow }
 
+$Table3 = "CareDataCareJourney-dev"
+Write-Host "Creating $Table3 (Care Journey - from CSV)..." -ForegroundColor Cyan
+aws dynamodb create-table `
+  --table-name $Table3 `
+  --attribute-definitions AttributeName=sub,AttributeType=S AttributeName=sk,AttributeType=S `
+  --key-schema AttributeName=sub,KeyType=HASH AttributeName=sk,KeyType=RANGE `
+  --billing-mode PAY_PER_REQUEST `
+  2>$null
+if ($LASTEXITCODE -eq 0) { Write-Host "  Created." -ForegroundColor Green } else { Write-Host "  (may already exist)" -ForegroundColor Yellow }
+
 Write-Host ""
 Write-Host "Done. Restart the backend, then upload a CSV or run a Health Scan; items will show in Uploaded History." -ForegroundColor Green
