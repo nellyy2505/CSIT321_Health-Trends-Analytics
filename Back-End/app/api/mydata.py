@@ -53,6 +53,69 @@ class MyDataBody(BaseModel):
     recommendations: dict[str, Any] | RecommendationsPayload | None = None
 
 
+class SettingsBody(BaseModel):
+    """User and facility settings. All fields optional."""
+    avatar: str = ""
+    firstName: str = ""
+    lastName: str = ""
+    jobTitle: str = ""
+    facilityName: str = ""
+    facilityType: str = ""
+    facilityRegistration: str = ""
+    abn: str = ""
+    street: str = ""
+    suburb: str = ""
+    state: str = ""
+    postcode: str = ""
+    bedCapacity: str = ""
+    contactEmail: str = ""
+    contactPhone: str = ""
+    emergencyContact: str = ""
+    delegatedContact: str = ""
+    afterHoursContact: str = ""
+
+
+@router.get("/settings")
+def get_settings(current_user: dict = Depends(get_current_user_cognito)):
+    """Get user/facility settings. Returns empty dict if none stored."""
+    sub = current_user.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        return health_data_db.get_settings(sub)
+    except ClientError as e:
+        code = (e.response or {}).get("Error", {}).get("Code", "")
+        if code == "ResourceNotFoundException":
+            raise HTTPException(
+                status_code=503,
+                detail="Storage not available. Create the DynamoDB table.",
+            ) from e
+        raise HTTPException(status_code=503, detail="Storage temporarily unavailable.") from e
+
+
+@router.put("/settings")
+def save_settings(
+    body: SettingsBody,
+    current_user: dict = Depends(get_current_user_cognito),
+):
+    """Save user/facility settings. Persists across devices."""
+    sub = current_user.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    settings = body.model_dump()
+    try:
+        health_data_db.put_settings(sub, settings)
+        return {"ok": True}
+    except ClientError as e:
+        code = (e.response or {}).get("Error", {}).get("Code", "")
+        if code == "ResourceNotFoundException":
+            raise HTTPException(
+                status_code=503,
+                detail="Storage not available. Create the DynamoDB table.",
+            ) from e
+        raise HTTPException(status_code=503, detail="Storage temporarily unavailable.") from e
+
+
 @router.get("", response_model=MyDataBody)
 def get_my_data(current_user: dict = Depends(get_current_user_cognito)):
     """Return stored My Data for the current user. Empty sections if none saved."""

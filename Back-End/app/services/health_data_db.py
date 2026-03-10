@@ -48,6 +48,33 @@ def get_health_data(sub: str) -> dict | None:
         return None
 
 
+def get_settings(sub: str) -> dict:
+    """Get user/facility settings. Returns empty dict if none stored."""
+    try:
+        r = _get_table().get_item(Key={"sub": sub})
+        item = r.get("Item")
+        if not item:
+            return {}
+        settings = item.get("settings")
+        if isinstance(settings, dict):
+            return _to_json_friendly(settings)
+        return {}
+    except ClientError:
+        return {}
+
+
+def put_settings(sub: str, settings: dict) -> None:
+    """Save user/facility settings. Uses update_item (creates item if not exists)."""
+    _get_table().update_item(
+        Key={"sub": sub},
+        UpdateExpression="SET settings = :s, updated_at = :t",
+        ExpressionAttributeValues={
+            ":s": {k: str(v) if v is not None else "" for k, v in settings.items()},
+            ":t": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+
 def put_health_data(
     sub: str,
     key_information: dict,
@@ -56,7 +83,7 @@ def put_health_data(
     trend_and_risk: dict,
     recommendations: dict | None = None,
 ) -> None:
-    """Save health data for user. Overwrites existing. recommendations optional: { actions, diet, exercise, risks }."""
+    """Save health data for user. Overwrites existing. Preserves settings. recommendations optional: { actions, diet, exercise, risks }."""
     now = datetime.now(timezone.utc).isoformat()
     item = {
         "sub": sub,
@@ -68,6 +95,13 @@ def put_health_data(
     }
     if recommendations and isinstance(recommendations, dict):
         item["recommendations"] = {k: str(v) for k, v in recommendations.items() if v is not None}
+    # Preserve existing settings when updating health data
+    try:
+        existing = _get_table().get_item(Key={"sub": sub})
+        if existing.get("Item", {}).get("settings"):
+            item["settings"] = existing["Item"]["settings"]
+    except ClientError:
+        pass
     try:
         _get_table().put_item(Item=item)
     except ClientError as e:
