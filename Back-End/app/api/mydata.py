@@ -257,11 +257,21 @@ def get_recommendations(current_user: dict = Depends(get_current_user_cognito)):
             }
         else:
             cs = None
+
+        def _to_str(val: Any) -> str:
+            if val is None:
+                return ""
+            if isinstance(val, str):
+                return val
+            if isinstance(val, list):
+                return "\n".join(str(x) for x in val) if val else ""
+            return str(val)
+
         return RecommendationsResponse(
-            actions=out.get("actions") or "",
-            diet=out.get("diet") or "",
-            exercise=out.get("exercise") or "",
-            risks=out.get("risks") or "",
+            actions=_to_str(out.get("actions")),
+            diet=_to_str(out.get("diet")),
+            exercise=_to_str(out.get("exercise")),
+            risks=_to_str(out.get("risks")),
             chartSuggestions=cs,
         )
     except Exception as e:

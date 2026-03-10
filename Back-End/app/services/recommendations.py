@@ -70,11 +70,21 @@ def generate_recommendations_from_health_data(data: dict[str, Any]) -> dict[str,
         if not raw:
             return {"actions": "", "diet": "", "exercise": "", "risks": ""}
         out = json.loads(raw)
+
+        def _to_str(val: Any) -> str:
+            if val is None:
+                return ""
+            if isinstance(val, str):
+                return val
+            if isinstance(val, list):
+                return "\n".join(str(x) for x in val) if val else ""
+            return str(val)
+
         return {
-            "actions": out.get("actions") or "",
-            "diet": out.get("diet") or "",
-            "exercise": out.get("exercise") or "",
-            "risks": out.get("risks") or "",
+            "actions": _to_str(out.get("actions")),
+            "diet": _to_str(out.get("diet")),
+            "exercise": _to_str(out.get("exercise")),
+            "risks": _to_str(out.get("risks")),
         }
     except Exception as e:
         logger.exception("generate_recommendations_from_health_data failed: %s", e)
