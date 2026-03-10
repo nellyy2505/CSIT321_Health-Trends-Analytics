@@ -175,3 +175,21 @@ export const clearHealthScanHistory = async () => {
   const response = await api.delete("/health-scan/history");
   return response.data;
 };
+
+// --- Care Journey (from CSV uploads) ---
+/** List patients with care journey data from facility CSV uploads. */
+export const getCareJourneyPatients = async (uploadId = null) => {
+  const params = uploadId ? { upload_id: uploadId } : {};
+  const response = await api.get("/care-journey/patients", { params });
+  return response.data;
+};
+
+/** Update a patient's care journey (name, risk, timeline). */
+export const updateCareJourneyPatient = async (uploadId, residentId, { name, risk, timeline }) => {
+  const response = await api.put(`/care-journey/patients/${uploadId}/${residentId}`, {
+    name,
+    risk,
+    timeline,
+  });
+  return response.data;
+};

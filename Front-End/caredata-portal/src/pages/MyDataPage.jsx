@@ -4,7 +4,7 @@ import MyDataSidebar from "../components/mydata/MyDataSidebar";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { HEALTH_SCAN_RESULT_KEY } from "../constants";
-import { getMyData, saveMyData } from "../services/api";
+import { getMyData, saveMyData, getHealthScanHistory } from "../services/api";
 
 const SECTION_TITLES = {
   keyInformation: "Key information from Health Scan",
@@ -184,6 +184,7 @@ export default function MyDataPage() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasScans, setHasScans] = useState(false);
   const [keyInformation, setKeyInformation] = useState({});
   const [patientContext, setPatientContext] = useState({});
   const [clinicalMeasurements, setClinicalMeasurements] = useState({});
@@ -191,10 +192,17 @@ export default function MyDataPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getMyData()
-      .then((data) => {
-        if (cancelled || !data) return;
-        if (hasMeaningfulData(data)) {
+    Promise.all([getMyData(), getHealthScanHistory()])
+      .then(([data, scans]) => {
+        const scanCount = Array.isArray(scans) ? scans.length : 0;
+        if (!cancelled) setHasScans(scanCount > 0);
+        if (cancelled || scanCount === 0) {
+          if (!cancelled && typeof localStorage !== "undefined") {
+            localStorage.removeItem(HEALTH_SCAN_RESULT_KEY);
+          }
+          return;
+        }
+        if (data && hasMeaningfulData(data)) {
           setKeyInformation(data.keyInformation || {});
           setPatientContext(data.patientContext || data.patient || {});
           setClinicalMeasurements(data.clinicalMeasurements || data.clinical || {});
@@ -203,13 +211,7 @@ export default function MyDataPage() {
       })
       .catch(() => {
         if (cancelled) return;
-        const local = loadHealthScanResult();
-        if (local) {
-          setKeyInformation(local.keyInformation || {});
-          setPatientContext(local.patientContext || {});
-          setClinicalMeasurements(local.clinicalMeasurements || {});
-          setTrendAndRisk(local.trendAndRisk || {});
-        }
+        // Don't load from localStorage on API error - avoid showing stale data when user has no scans
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -258,10 +260,11 @@ export default function MyDataPage() {
           )}
 
           {!loading &&
-            !Object.keys(keyInformation).length &&
-            !Object.keys(patientContext).length &&
-            !Object.keys(clinicalMeasurements).length &&
-            !Object.keys(trendAndRisk).length && (
+            (!hasScans ||
+              (!Object.keys(keyInformation).length &&
+                !Object.keys(patientContext).length &&
+                !Object.keys(clinicalMeasurements).length &&
+                !Object.keys(trendAndRisk).length)) && (
               <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-xl text-center">
                 <p className="text-amber-800 font-medium mb-2">No data yet</p>
                 <p className="text-sm text-amber-700 mb-4">
@@ -277,6 +280,8 @@ export default function MyDataPage() {
               </div>
             )}
 
+          {hasScans && (
+          <>
           <div className="space-y-6">
             {sections.map(({ key, data, setData }) => (
               <SectionCard
@@ -311,6 +316,8 @@ export default function MyDataPage() {
               {isEditing ? "Save" : "Edit Data"}
             </button>
           </div>
+          </>
+          )}
         </div>
       </main>
 

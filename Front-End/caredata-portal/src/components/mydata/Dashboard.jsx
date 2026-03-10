@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../common/Navbar";
 import Footer from "../common/Footer";
 import MyDataSidebar from "./MyDataSidebar";
-import { getMyData } from "../../services/api";
+import { getMyData, getHealthScanHistory } from "../../services/api";
 import { HEALTH_SCAN_RESULT_KEY } from "../../constants";
 import {
   Radar,
@@ -219,16 +219,23 @@ function hasAnyData(sections) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [myData, setMyData] = useState(null);
+  const [scanCount, setScanCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    getMyData()
-      .then((data) => {
+    Promise.all([getMyData(), getHealthScanHistory()])
+      .then(([data, scans]) => {
         if (!cancelled && data) setMyData(data);
+        const count = Array.isArray(scans) ? scans.length : 0;
+        if (!cancelled) setScanCount(count);
+        if (!cancelled && count === 0 && typeof localStorage !== "undefined") {
+          localStorage.removeItem(HEALTH_SCAN_RESULT_KEY);
+        }
       })
       .catch(() => {
         if (!cancelled) setMyData(null);
+        if (!cancelled) setScanCount(0);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -245,6 +252,12 @@ export default function Dashboard() {
     () => hasAnyData([keyInformation, patientContext, clinicalMeasurements, trendAndRisk]),
     [keyInformation, patientContext, clinicalMeasurements, trendAndRisk]
   );
+
+  // Only show charts when we have real numeric data (from Health Scan). Text-only or placeholder = no scan.
+  const hasRealChartData = useMemo(() => {
+    const { barRows } = buildChartDataFromMyData(keyInformation, patientContext, clinicalMeasurements, trendAndRisk, null);
+    return barRows.some((r) => r.name !== "No data");
+  }, [keyInformation, patientContext, clinicalMeasurements, trendAndRisk]);
 
   // Display recommendations: from API (saved after Health Scan) or from localStorage if save failed
   const savedRecs = myData?.recommendations && (myData.recommendations.actions || myData.recommendations.diet || myData.recommendations.exercise || myData.recommendations.risks)
@@ -292,9 +305,9 @@ export default function Dashboard() {
             <p className="text-center text-gray-500 text-sm mb-6">Loading your data…</p>
           )}
 
-          {!loading && !hasData && (
+          {!loading && (scanCount === 0 || !hasData || !hasRealChartData) && (
             <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-xl text-center">
-              <p className="text-amber-800 font-medium mb-2">No data yet</p>
+              <p className="text-amber-800 font-medium mb-2">No Health Scan data yet</p>
               <p className="text-sm text-amber-700 mb-4">
                 Go to <strong>Health Scan</strong>, upload a health record image (e.g. lab result, allergy panel), and we&apos;ll extract and show the information here.
               </p>
@@ -308,7 +321,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {!loading && hasData && (
+          {!loading && scanCount > 0 && hasData && hasRealChartData && (
           <>
           {/* Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">

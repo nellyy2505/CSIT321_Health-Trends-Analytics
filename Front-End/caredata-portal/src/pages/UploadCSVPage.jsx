@@ -137,6 +137,7 @@ export default function UploadCSVPage() {
             <ul className="list-disc list-inside space-y-1">
               <li>Use a .CSV file with clear column headers.</li>
               <li>Data should describe facility metrics (e.g. admissions, length of stay, readmissions).</li>
+              <li>For Care Journey Flow: include resident_id, dates (admission, assessment, treatment, review, discharge), risk.</li>
               <li>Maximum file size: {MAX_SIZE_MB} MB.</li>
             </ul>
           </div>
