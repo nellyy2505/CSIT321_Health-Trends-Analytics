@@ -33,12 +33,24 @@ class RecommendationsPayload(BaseModel):
     risks: str = ""
 
 
+def _rec_value_to_str(v: Any) -> str:
+    """Convert recommendation value to string (handles nested dicts from AI, e.g. diet: {what_to_eat, what_to_avoid})."""
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v.strip()
+    if isinstance(v, dict):
+        parts = [f"{k}: {_rec_value_to_str(val)}" for k, val in v.items() if val is not None and str(val).strip()]
+        return "\n".join(parts) if parts else ""
+    return str(v).strip() if v else ""
+
+
 class MyDataBody(BaseModel):
     keyInformation: dict[str, Any] = {}
     patientContext: dict[str, Any] = {}
     clinicalMeasurements: dict[str, Any] = {}
     trendAndRisk: dict[str, Any] = {}
-    recommendations: RecommendationsPayload | None = None
+    recommendations: dict[str, Any] | RecommendationsPayload | None = None
 
 
 @router.get("", response_model=MyDataBody)
@@ -77,12 +89,21 @@ def save_my_data(
     trend = _stringify_dict(body.trendAndRisk)
     rec = None
     if body.recommendations:
-        rec = {
-            "actions": body.recommendations.actions or "",
-            "diet": body.recommendations.diet or "",
-            "exercise": body.recommendations.exercise or "",
-            "risks": body.recommendations.risks or "",
-        }
+        r = body.recommendations
+        if isinstance(r, dict):
+            rec = {
+                "actions": _rec_value_to_str(r.get("actions")),
+                "diet": _rec_value_to_str(r.get("diet")),
+                "exercise": _rec_value_to_str(r.get("exercise")),
+                "risks": _rec_value_to_str(r.get("risks")),
+            }
+        else:
+            rec = {
+                "actions": (r.actions or "").strip(),
+                "diet": (r.diet or "").strip(),
+                "exercise": (r.exercise or "").strip(),
+                "risks": (r.risks or "").strip(),
+            }
     try:
         health_data_db.put_health_data(sub, key_info, patient_ctx, clinical, trend, recommendations=rec)
     except ClientError as e:

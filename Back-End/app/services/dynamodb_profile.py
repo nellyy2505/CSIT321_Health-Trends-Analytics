@@ -6,7 +6,7 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 
-TABLE_NAME = os.environ.get("PROFILES_TABLE_NAME", "CareDataProfiles")
+TABLE_NAME = os.environ.get("PROFILES_TABLE_NAME", "CareDataProfiles-dev")
 
 
 def _get_table():
@@ -23,7 +23,8 @@ def get_profile(sub: str) -> dict | None:
 
 
 def put_profile(sub: str, first_name: str, last_name: str, email: str, role: str = "user"):
-    """Create or update profile (e.g. after first login)."""
+    """Create or update profile (e.g. after first login). Best-effort; no-op if table missing."""
+    import logging
     try:
         _get_table().put_item(
             Item={
@@ -35,10 +36,12 @@ def put_profile(sub: str, first_name: str, last_name: str, email: str, role: str
             }
         )
     except ClientError as e:
-        # Log but don't crash - caller can still return Cognito claims
-        import logging
-        logging.getLogger(__name__).warning("DynamoDB put_profile failed: %s", e)
-        raise
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code == "ResourceNotFoundException":
+            # Table not created yet (e.g. local dev) — skip without spamming logs
+            pass
+        else:
+            logging.getLogger(__name__).warning("DynamoDB put_profile failed: %s", e)
 
 
 def get_or_create_profile(user_claims: dict) -> dict:

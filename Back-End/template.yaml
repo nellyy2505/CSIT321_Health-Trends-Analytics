@@ -48,6 +48,38 @@ Resources:
         - AttributeName: sub
           KeyType: HASH
 
+  UploadHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub CareDataUploadHistory-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sub
+          AttributeType: S
+        - AttributeName: upload_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sub
+          KeyType: HASH
+        - AttributeName: upload_id
+          KeyType: RANGE
+
+  ScanHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub CareDataScanHistory-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sub
+          AttributeType: S
+        - AttributeName: scan_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sub
+          KeyType: HASH
+        - AttributeName: scan_id
+          KeyType: RANGE
+
   CareDataApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -82,11 +114,17 @@ Resources:
           OPENAI_API_KEY: !Ref OpenAIApiKey
           PROFILES_TABLE_NAME: !Sub CareDataProfiles-${Stage}
           HEALTH_DATA_TABLE_NAME: !Sub CareDataHealthData-${Stage}
+          UPLOAD_HISTORY_TABLE_NAME: !Sub CareDataUploadHistory-${Stage}
+          SCAN_HISTORY_TABLE_NAME: !Sub CareDataScanHistory-${Stage}
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ProfilesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref HealthDataTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UploadHistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ScanHistoryTable
   # Uncomment and set Cognito as authorizer when ready:
   #   Auth:
   #     Authorizer: CognitoAuthorizer

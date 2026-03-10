@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.services.cognito_auth import get_current_user_cognito
 from app.services.recommendations import generate_recommendations_from_health_data
+from app.services import scan_history_db
 
 router = APIRouter(prefix="/health-scan", tags=["Health Scan"])
 logger = logging.getLogger(__name__)
@@ -152,7 +153,7 @@ MAX_IMAGE_SIZE_MB = 10
 @router.post("/analyze", response_model=HealthScanResponse)
 async def analyze_health_record(
     images: List[UploadFile] = File(..., description="1 to 5 health record images"),
-    _user: dict = Depends(get_current_user_cognito),
+    current_user: dict = Depends(get_current_user_cognito),
 ) -> HealthScanResponse:
     if not settings.OPENAI_API_KEY:
         raise HTTPException(
@@ -241,4 +242,54 @@ async def analyze_health_record(
         logger.warning("Recommendations generation failed (health data still returned): %s", e)
         out.recommendations = {"actions": "", "diet": "", "exercise": "", "risks": ""}
     out.debug = {"promptSent": {"system": SYSTEM_PROMPT, "userText": user_text}}
+
+    # Record in scan history for Uploaded History page
+    sub = current_user.get("sub")
+    if sub:
+        try:
+            summary_parts = []
+            for k, v in (out.keyInformation or {}).items():
+                if v and len(str(v)) < 100:
+                    summary_parts.append(f"{k}: {v}")
+            summary = " | ".join(summary_parts)[:500] if summary_parts else "Health record scan"
+            scan_history_db.put_scan(sub, len(images), summary)
+        except Exception as e:
+            logger.warning("Scan history record failed (continuing): %s", e)
+
     return out
+
+
+@router.get("/history", response_model=list)
+def list_scan_history(current_user: dict = Depends(get_current_user_cognito)):
+    """List all Health Scan records for the current user."""
+    sub = current_user.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    items = scan_history_db.list_scans(sub)
+    logger.info("[list_scan_history] sub=%s count=%d", sub[:20] + "..." if len(sub) > 20 else sub, len(items))
+    return items
+
+
+@router.delete("/history/{scan_id}")
+def delete_scan_by_id(
+    scan_id: str,
+    current_user: dict = Depends(get_current_user_cognito),
+):
+    """Delete one Health Scan record."""
+    sub = current_user.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    ok = scan_history_db.delete_scan(sub, scan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    return {"ok": True}
+
+
+@router.delete("/history")
+def clear_scan_history(current_user: dict = Depends(get_current_user_cognito)):
+    """Clear all Health Scan records for the current user."""
+    sub = current_user.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    count = scan_history_db.clear_all_scans(sub)
+    return {"deleted": count}
