@@ -120,11 +120,15 @@ function buildChartDataFromMyData(keyInformation, patientContext, clinicalMeasur
   };
 }
 
-/** Render a recommendation value that may be a string or an object (e.g. diet: { what_to_eat, what_to_avoid }). */
+/** Render a recommendation value that may be a string, array of strings, or object (e.g. diet: { what_to_eat, what_to_avoid }). */
 function RecContent({ value }) {
   if (value == null) return null;
   if (typeof value === "string") return <p className="leading-relaxed whitespace-pre-line">{value}</p>;
-  if (typeof value === "object" && !Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    const text = value.filter(Boolean).map((v) => (typeof v === "string" ? v : String(v))).join("\n");
+    return text ? <p className="leading-relaxed whitespace-pre-line">{text}</p> : null;
+  }
+  if (typeof value === "object") {
     return (
       <div className="space-y-2">
         {Object.entries(value).map(([k, v]) => {
