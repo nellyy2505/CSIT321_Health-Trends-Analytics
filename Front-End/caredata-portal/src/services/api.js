@@ -115,3 +115,63 @@ export const getRecommendations = async () => {
   const response = await api.get("/mydata/recommendations");
   return response.data;
 };
+
+// --- Upload CSV (facility data) ---
+/** Upload CSV file; backend analyzes with ChatGPT and stores in history. Returns { uploadId, filename, analysis }. */
+export const uploadAndAnalyzeCSV = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post("/upload-csv/analyze", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
+/** List CSV upload history for current user. */
+export const getUploadHistory = async () => {
+  const response = await api.get("/upload-csv/history");
+  return response.data;
+};
+
+/** Get one upload by id (includes analysis). */
+export const getUploadById = async (uploadId) => {
+  const response = await api.get(`/upload-csv/history/${uploadId}`);
+  return response.data;
+};
+
+/** Delete one upload. */
+export const deleteUpload = async (uploadId) => {
+  const response = await api.delete(`/upload-csv/history/${uploadId}`);
+  return response.data;
+};
+
+/** Clear all upload history. */
+export const clearUploadHistory = async () => {
+  const response = await api.delete("/upload-csv/history");
+  return response.data;
+};
+
+/** Get dashboard data (trend charts + recommendations) for a CSV upload. */
+export const getDashboardCSVData = async (uploadId) => {
+  const response = await api.post("/upload-csv/dashboard", { uploadId });
+  return response.data;
+};
+
+// --- Health Scan history (for Uploaded History page) ---
+/** List Health Scan history for current user. */
+export const getHealthScanHistory = async () => {
+  const response = await api.get("/health-scan/history");
+  return response.data;
+};
+
+/** Delete one Health Scan record. */
+export const deleteHealthScan = async (scanId) => {
+  const response = await api.delete(`/health-scan/history/${scanId}`);
+  return response.data;
+};
+
+/** Clear all Health Scan history. */
+export const clearHealthScanHistory = async () => {
+  const response = await api.delete("/health-scan/history");
+  return response.data;
+};

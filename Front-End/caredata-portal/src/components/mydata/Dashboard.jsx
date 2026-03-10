@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../common/Navbar";
 import Footer from "../common/Footer";
 import MyDataSidebar from "./MyDataSidebar";
@@ -119,6 +120,30 @@ function buildChartDataFromMyData(keyInformation, patientContext, clinicalMeasur
   };
 }
 
+/** Render a recommendation value that may be a string or an object (e.g. diet: { what_to_eat, what_to_avoid }). */
+function RecContent({ value }) {
+  if (value == null) return null;
+  if (typeof value === "string") return <p className="leading-relaxed whitespace-pre-line">{value}</p>;
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return (
+      <div className="space-y-2">
+        {Object.entries(value).map(([k, v]) => {
+          if (v == null || v === "") return null;
+          const label = String(k).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          const text = typeof v === "string" ? v : JSON.stringify(v);
+          return (
+            <div key={k}>
+              <span className="font-medium text-gray-800">{label}: </span>
+              <span className="whitespace-pre-line">{text}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return <p className="leading-relaxed">{String(value)}</p>;
+}
+
 function getByKey(obj, ...keys) {
   if (!obj || typeof obj !== "object") return null;
   const lowerKeys = keys.map((k) => String(k).toLowerCase());
@@ -184,7 +209,15 @@ function getAIRecommendation(keyInformation, patientContext, clinicalMeasurement
   return parts.join(" ");
 }
 
+function hasAnyData(sections) {
+  return sections.some((s) => {
+    if (!s || typeof s !== "object") return false;
+    return Object.values(s).some((v) => v != null && String(v).trim() !== "");
+  });
+}
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [myData, setMyData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -207,6 +240,11 @@ export default function Dashboard() {
   const patientContext = myData?.patientContext || {};
   const clinicalMeasurements = myData?.clinicalMeasurements || {};
   const trendAndRisk = myData?.trendAndRisk || {};
+
+  const hasData = useMemo(
+    () => hasAnyData([keyInformation, patientContext, clinicalMeasurements, trendAndRisk]),
+    [keyInformation, patientContext, clinicalMeasurements, trendAndRisk]
+  );
 
   // Display recommendations: from API (saved after Health Scan) or from localStorage if save failed
   const savedRecs = myData?.recommendations && (myData.recommendations.actions || myData.recommendations.diet || myData.recommendations.exercise || myData.recommendations.risks)
@@ -254,6 +292,24 @@ export default function Dashboard() {
             <p className="text-center text-gray-500 text-sm mb-6">Loading your data…</p>
           )}
 
+          {!loading && !hasData && (
+            <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-xl text-center">
+              <p className="text-amber-800 font-medium mb-2">No data yet</p>
+              <p className="text-sm text-amber-700 mb-4">
+                Go to <strong>Health Scan</strong>, upload a health record image (e.g. lab result, allergy panel), and we&apos;ll extract and show the information here.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/health-scan")}
+                className="bg-amber-500 text-white px-4 py-2 rounded-md font-medium hover:bg-amber-600 transition"
+              >
+                Open Health Scan
+              </button>
+            </div>
+          )}
+
+          {!loading && hasData && (
+          <>
           {/* Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -324,25 +380,25 @@ export default function Dashboard() {
                     {displayedRecs.actions && (
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-1">What to do</h4>
-                        <p className="leading-relaxed whitespace-pre-line">{displayedRecs.actions}</p>
+                        <RecContent value={displayedRecs.actions} />
                       </div>
                     )}
                     {displayedRecs.diet && (
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-1">Diet: what to eat & avoid</h4>
-                        <p className="leading-relaxed whitespace-pre-line">{displayedRecs.diet}</p>
+                        <RecContent value={displayedRecs.diet} />
                       </div>
                     )}
                     {displayedRecs.exercise && (
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-1">Exercise & activity</h4>
-                        <p className="leading-relaxed whitespace-pre-line">{displayedRecs.exercise}</p>
+                        <RecContent value={displayedRecs.exercise} />
                       </div>
                     )}
                     {displayedRecs.risks && (
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-1">Possible risks / conditions</h4>
-                        <p className="leading-relaxed whitespace-pre-line">{displayedRecs.risks}</p>
+                        <RecContent value={displayedRecs.risks} />
                       </div>
                     )}
                   </div>
@@ -383,6 +439,8 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+          </>
+          )}
         </div>
       </main>
 

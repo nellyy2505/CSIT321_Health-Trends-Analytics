@@ -12,6 +12,8 @@ import DomainDetailsPage from "./components/mydata/DomainDetailsPage";
 import SettingPage from "./components/mydata/SettingPage";
 import DocumentationPage from "./components/mydata/DocumentationPage";
 import Dashboard from "./components/mydata/Dashboard";
+import DashboardCSV from "./components/mydata/DashboardCSV";
+import UploadedHistoryPage from "./components/mydata/UploadedHistoryPage";
 import PrivacyPage from "./components/footerPages/PrivacyPage";
 import TermsPage from "./components/footerPages/TermsPage";
 import ContactPage from "./components/footerPages/ContactPage";
@@ -103,6 +105,24 @@ export default function App() {
           element={
             <RequireAuth>
               <Dashboard />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/dashboard-csv"
+          element={
+            <RequireAuth>
+              <DashboardCSV />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/uploaded-history"
+          element={
+            <RequireAuth>
+              <UploadedHistoryPage />
             </RequireAuth>
           }
         />

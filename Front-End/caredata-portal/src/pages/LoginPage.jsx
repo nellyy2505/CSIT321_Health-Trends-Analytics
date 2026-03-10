@@ -436,6 +436,7 @@ export default function LoginPage() {
                     onSuccess={handleGoogleSuccess}
                     onError={handleGoogleError}
                     width="100%"
+                    useOneTap={false}
                   />
                 ) : (
                   <p className="text-sm text-gray-500 text-center">

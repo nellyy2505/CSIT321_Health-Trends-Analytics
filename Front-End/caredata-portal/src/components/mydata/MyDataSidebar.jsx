@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, Database, Settings, FileText, GitBranch } from "lucide-react";
+import { LayoutGrid, Database, Settings, FileText, GitBranch, BarChart3, History } from "lucide-react";
 
 export default function MyDataSidebar({ activePage = "Dashboard" }) {
   const navigate = useNavigate();
@@ -44,6 +44,19 @@ export default function MyDataSidebar({ activePage = "Dashboard" }) {
           </li>
 
           <li
+            onClick={() => navigate("/dashboard-csv")}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
+              ${
+                activePage === "Dashboard-CSV"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+          >
+            <BarChart3 size={16} />
+            Dashboard-CSV
+          </li>
+
+          <li
             onClick={() => navigate("/careJourneyFlow")}
             className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
               ${
@@ -54,6 +67,19 @@ export default function MyDataSidebar({ activePage = "Dashboard" }) {
           >
             <GitBranch size={16} />
             Care Journey Flow
+          </li>
+
+          <li
+            onClick={() => navigate("/uploaded-history")}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
+              ${
+                activePage === "Uploaded History"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+          >
+            <History size={16} />
+            Uploaded History
           </li>
         </ul>
 
