@@ -9,7 +9,6 @@ import {
   getRecommendations,
   getUploadHistory,
   getDashboardCSVData,
-  getCareJourneyPatients,
   getHealthScanHistory,
   getSettings,
 } from "../../services/api";
@@ -17,19 +16,15 @@ import {
 const PRESETS = {
   personal: {
     label: "Personal Health Report",
-    options: { myData: true, charts: true, aiRecommendations: true, careJourney: false, facilityAnalytics: false, uploadHistory: false },
+    options: { myData: true, charts: true, aiRecommendations: true, facilityAnalytics: false, uploadHistory: false },
   },
   facility: {
     label: "Facility Analytics Report",
-    options: { myData: false, charts: true, aiRecommendations: false, careJourney: false, facilityAnalytics: true, uploadHistory: false },
-  },
-  careJourney: {
-    label: "Care Journey Report",
-    options: { myData: false, charts: false, aiRecommendations: false, careJourney: true, facilityAnalytics: false, uploadHistory: false },
+    options: { myData: false, charts: true, aiRecommendations: false, facilityAnalytics: true, uploadHistory: false },
   },
   full: {
     label: "Full Report",
-    options: { myData: true, charts: true, aiRecommendations: true, careJourney: true, facilityAnalytics: true, uploadHistory: true },
+    options: { myData: true, charts: true, aiRecommendations: true, facilityAnalytics: true, uploadHistory: true },
   },
 };
 
@@ -37,7 +32,6 @@ const OPTION_LABELS = {
   myData: "My Data",
   charts: "Charts",
   aiRecommendations: "AI Recommendations",
-  careJourney: "Care Journey",
   facilityAnalytics: "Facility Analytics",
   uploadHistory: "Upload History",
 };
@@ -80,7 +74,7 @@ const FACILITY_TYPE_LABELS = {
 };
 
 function buildReportHtml(data) {
-  const { myData, recommendations, uploadHistory, dashboardData, careJourneyPatients, healthScanHistory, options, selectedUploadId, settings } = data;
+  const { myData, recommendations, uploadHistory, dashboardData, healthScanHistory, options, selectedUploadId, settings } = data;
 
   const sections = [];
 
@@ -207,32 +201,6 @@ function buildReportHtml(data) {
     }
   }
 
-  if (options.careJourney && careJourneyPatients?.patients?.length > 0) {
-    const STAGES = ["admission", "assessment", "treatment", "review", "discharge"];
-    const rows = careJourneyPatients.patients.map((p) => {
-      const name = p.displayName || p.name || p.id;
-      const risk = p.displayRisk || p.risk || "—";
-      const timeline = p.displayTimeline || p.timeline || {};
-      const totalDays = Object.values(timeline).reduce((acc, v) => acc + (Number(v?.days) || 0), 0);
-      const stages = STAGES.map((s) => {
-        const m = timeline[s];
-        return m && (m.date || m.days) ? `${s}: ${m.date || ""} (${m.days || 0}d)` : null;
-      }).filter(Boolean).join("; ");
-      return { name, risk, totalDays, stages };
-    });
-    sections.push({
-      title: "Care Journey",
-      html: `
-        <table class="report-table">
-          <thead><tr><th>Patient</th><th>Risk</th><th>Total Days</th><th>Stages</th></tr></thead>
-          <tbody>
-            ${rows.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.risk)}</td><td>${r.totalDays}</td><td>${escapeHtml(r.stages)}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      `,
-    });
-  }
-
   if (options.uploadHistory && (uploadHistory?.length > 0 || healthScanHistory?.length > 0)) {
     const csvRows = (uploadHistory || []).map((u) => ({
       type: "CSV Upload",
@@ -319,7 +287,6 @@ export default function DocumentationPage() {
     myData: true,
     charts: true,
     aiRecommendations: true,
-    careJourney: false,
     facilityAnalytics: false,
     uploadHistory: false,
   });
@@ -348,12 +315,12 @@ export default function DocumentationPage() {
     }
   };
 
-  const needsUpload = selectedOptions.facilityAnalytics || selectedOptions.careJourney;
+  const needsUpload = selectedOptions.facilityAnalytics;
   const hasUploads = uploadHistory.length > 0;
 
   const handleGenerate = async () => {
     if (needsUpload && !selectedUploadId) {
-      setError("Please select a CSV upload for Facility Analytics or Care Journey.");
+      setError("Please select a CSV upload for Facility Analytics.");
       return;
     }
     setError("");
@@ -366,16 +333,14 @@ export default function DocumentationPage() {
         uploadHistory: selectedOptions.uploadHistory ? getUploadHistory() : Promise.resolve([]),
         healthScanHistory: selectedOptions.uploadHistory ? getHealthScanHistory() : Promise.resolve([]),
         dashboardData: selectedOptions.facilityAnalytics && selectedUploadId ? getDashboardCSVData(selectedUploadId) : Promise.resolve(null),
-        careJourneyPatients: selectedOptions.careJourney && selectedUploadId ? getCareJourneyPatients(selectedUploadId) : Promise.resolve(null),
       };
-      const [settings, myData, recommendations, uploads, scans, dashboardData, careJourneyPatients] = await Promise.all([
+      const [settings, myData, recommendations, uploads, scans, dashboardData] = await Promise.all([
         promises.settings,
         promises.myData,
         promises.recommendations,
         promises.uploadHistory,
         promises.healthScanHistory,
         promises.dashboardData,
-        promises.careJourneyPatients,
       ]);
       const html = buildReportHtml({
         myData,
@@ -383,7 +348,6 @@ export default function DocumentationPage() {
         uploadHistory: uploads,
         healthScanHistory: scans,
         dashboardData,
-        careJourneyPatients,
         options: selectedOptions,
         selectedUploadId,
         settings: settings || (() => {
@@ -560,7 +524,7 @@ export default function DocumentationPage() {
               Use presets for quick report types. The report downloads as a PDF automatically.
             </p>
             <p className="text-gray-600 text-sm">
-              <strong>Data needed:</strong> Personal Health Report uses My Data (from Health Scan or manual entry). Facility Analytics and Care Journey require a CSV upload—upload a CSV first, then select it above.
+              <strong>Data needed:</strong> Personal Health Report uses My Data (from Health Scan or manual entry). Facility Analytics requires a CSV upload—upload a CSV first, then select it above.
             </p>
           </div>
         </div>

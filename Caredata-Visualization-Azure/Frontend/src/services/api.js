@@ -184,17 +184,3 @@ export const clearHealthScanHistory = async () => {
   return response.data;
 };
 
-export const getCareJourneyPatients = async (uploadId = null) => {
-  const params = uploadId ? { upload_id: uploadId } : {};
-  const response = await api.get("/care-journey/patients", { params });
-  return response.data;
-};
-
-export const updateCareJourneyPatient = async (uploadId, residentId, { name, risk, timeline }) => {
-  const response = await api.put(`/care-journey/patients/${uploadId}/${residentId}`, {
-    name,
-    risk,
-    timeline,
-  });
-  return response.data;
-}
