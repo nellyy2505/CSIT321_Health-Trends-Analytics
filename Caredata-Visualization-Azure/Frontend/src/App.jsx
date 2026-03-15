@@ -15,8 +15,6 @@ import DomainDetailsPage from "./components/mydata/DomainDetailsPage";
 import SettingPage from "./components/mydata/SettingPage";
 import DocumentationPage from "./components/mydata/DocumentationPage";
 import Dashboard from "./components/mydata/Dashboard";
-import DashboardCSV from "./components/mydata/DashboardCSV";
-import CSVVisualizationPage from "./components/mydata/CSVVisualizationPage";
 import UploadedHistoryPage from "./components/mydata/UploadedHistoryPage";
 import PrivacyPage from "./components/footerPages/PrivacyPage";
 import TermsPage from "./components/footerPages/TermsPage";
@@ -102,29 +100,12 @@ export default function App() {
           }
         />
 
-        <Route path="/dashboard" element={<QIDashboardPage />} />
+        <Route path="/dashboard" element={<RequireAuth><QIDashboardPage /></RequireAuth>} />
         <Route
           path="/health-dashboard"
           element={
             <RequireAuth>
               <Dashboard />
-            </RequireAuth>
-          }
-        />
-
-        <Route
-          path="/dashboard-csv"
-          element={
-            <RequireAuth>
-              <DashboardCSV />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/dashboard-csv/visualize/:uploadId"
-          element={
-            <RequireAuth>
-              <CSVVisualizationPage />
             </RequireAuth>
           }
         />

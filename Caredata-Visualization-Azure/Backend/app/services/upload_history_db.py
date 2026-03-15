@@ -78,15 +78,16 @@ def get_upload(sub: str, upload_id: str) -> dict | None:
     return None
 
 
-# Max CSV content to store (Azure Table property limit ~64KB)
-MAX_CSV_CONTENT_LEN = 60 * 1024
+# Azure Table Storage: max 64KB per property; strings are UTF-16 so max 32K characters per property
+MAX_PROPERTY_CHARS = 32 * 1024  # 32768
 
 
 def put_upload(sub: str, filename: str, analysis: str, csv_content: str | None = None) -> str:
-    """Save a new upload. Optionally store csv_content for download (truncated to MAX_CSV_CONTENT_LEN). Returns upload_id."""
+    """Save a new upload. Optionally store csv_content for download (truncated to MAX_PROPERTY_CHARS). Returns upload_id."""
     upload_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
-    stored_csv = (csv_content or "")[:MAX_CSV_CONTENT_LEN] if csv_content else None
+    stored_csv = (csv_content or "")[:MAX_PROPERTY_CHARS] if csv_content else None
+    analysis_truncated = (analysis or "")[:MAX_PROPERTY_CHARS]
     table = _get_table()
     if table:
         try:
@@ -96,7 +97,7 @@ def put_upload(sub: str, filename: str, analysis: str, csv_content: str | None =
                 "upload_id": upload_id,
                 "filename": filename,
                 "uploaded_at": now,
-                "analysis": (analysis or "")[:50000],
+                "analysis": analysis_truncated,
             }
             if stored_csv is not None:
                 entity["csv_content"] = stored_csv
@@ -111,7 +112,7 @@ def put_upload(sub: str, filename: str, analysis: str, csv_content: str | None =
         "uploadId": upload_id,
         "filename": filename,
         "uploadedAt": now,
-        "analysis": (analysis or "")[:50000],
+        "analysis": analysis_truncated,
     }
     if stored_csv is not None:
         rec["csv_content"] = stored_csv

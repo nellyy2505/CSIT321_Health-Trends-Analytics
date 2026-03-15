@@ -82,27 +82,56 @@ export const saveSettings = async (settings) => {
   return response.data;
 };
 
+const UPLOAD_CSV_LOG = "[upload-csv]";
+
 export const uploadAndAnalyzeCSV = async (file) => {
+  console.log(`${UPLOAD_CSV_LOG} Step: Sending CSV to backend`, {
+    endpoint: "/upload-csv/analyze",
+    fileName: file?.name,
+    fileSize: file?.size,
+    fileSizeKB: file?.size ? (file.size / 1024).toFixed(1) : null,
+  });
   const formData = new FormData();
   formData.append("file", file);
   const response = await api.post("/upload-csv/analyze", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return response.data;
+  const data = response.data;
+  console.log(`${UPLOAD_CSV_LOG} Step: Received from backend`, {
+    uploadId: data?.uploadId,
+    filename: data?.filename,
+    saved: data?.saved,
+    analysisKeys: data?.analysis ? Object.keys(data.analysis) : null,
+    analysisLength: typeof data?.analysis === "string" ? data.analysis?.length : JSON.stringify(data?.analysis)?.length,
+  });
+  return data;
 };
 
 export const getUploadHistory = async () => {
+  console.log(`${UPLOAD_CSV_LOG} Step: Fetching upload history`, { endpoint: "GET /upload-csv/history" });
   const response = await api.get("/upload-csv/history");
-  return response.data;
+  const data = response.data;
+  console.log(`${UPLOAD_CSV_LOG} Step: Received upload history`, { count: Array.isArray(data) ? data.length : 0, items: data });
+  return data;
 };
 
 export const getUploadById = async (uploadId) => {
+  console.log(`${UPLOAD_CSV_LOG} Step: Fetching upload by id`, { endpoint: `GET /upload-csv/history/${uploadId}`, uploadId });
   const response = await api.get(`/upload-csv/history/${uploadId}`);
-  return response.data;
+  const data = response.data;
+  console.log(`${UPLOAD_CSV_LOG} Step: Received upload`, {
+    uploadId: data?.uploadId,
+    filename: data?.filename,
+    keys: data ? Object.keys(data) : [],
+    hasAnalysis: !!data?.analysis,
+    analysisLength: typeof data?.analysis === "string" ? data?.analysis?.length : (data?.analysis ? JSON.stringify(data.analysis).length : 0),
+  });
+  return data;
 };
 
 /** Download CSV file for an upload. Triggers browser download. */
 export const downloadUploadCSV = async (uploadId, filename = "data.csv") => {
+  console.log(`${UPLOAD_CSV_LOG} Step: Downloading CSV`, { endpoint: `GET /upload-csv/history/${uploadId}/download`, uploadId, filename });
   const response = await api.get(`/upload-csv/history/${uploadId}/download`, {
     responseType: "blob",
   });
@@ -120,10 +149,13 @@ export const downloadUploadCSV = async (uploadId, filename = "data.csv") => {
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+  console.log(`${UPLOAD_CSV_LOG} Step: Download started`, { uploadId, savedAs: name });
 };
 
 export const deleteUpload = async (uploadId) => {
+  console.log(`${UPLOAD_CSV_LOG} Step: Deleting upload`, { endpoint: `DELETE /upload-csv/history/${uploadId}`, uploadId });
   const response = await api.delete(`/upload-csv/history/${uploadId}`);
+  console.log(`${UPLOAD_CSV_LOG} Step: Delete response`, { uploadId, response: response.data });
   return response.data;
 };
 

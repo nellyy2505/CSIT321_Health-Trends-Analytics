@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
 import {
@@ -358,9 +359,25 @@ function ChartCard({ chart, orange = "#f97316" }) {
   );
 }
 
+const VALID_SECTION_IDS = new Set(SIDEBAR_ITEMS.map((item) => item.id));
+
+function getInitialSectionId(searchParams) {
+  const id = (searchParams.get("section") || "").toLowerCase().trim();
+  return id && VALID_SECTION_IDS.has(id) ? id : "pi";
+}
+
 export default function ReportsPage() {
-  const [activeId, setActiveId] = useState("pi");
+  const [searchParams] = useSearchParams();
+  const sectionParam = searchParams.get("section") || "";
+  const [activeId, setActiveId] = useState(() => getInitialSectionId(searchParams));
   const [quarter, setQuarter] = useState("Q3 2024");
+
+  useEffect(() => {
+    const id = sectionParam.toLowerCase().trim();
+    if (id && VALID_SECTION_IDS.has(id) && id !== activeId) {
+      setActiveId(id);
+    }
+  }, [sectionParam]);
 
   const section = SECTIONS.find((s) => s.id === activeId) || SECTIONS[0];
   const badgeClass = section.badge === "red" ? "bg-red-100 text-red-800" : section.badge === "amber" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800";

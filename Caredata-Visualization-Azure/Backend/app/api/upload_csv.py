@@ -24,14 +24,59 @@ logger = logging.getLogger(__name__)
 
 MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB
 
-CSV_ANALYSIS_PROMPT = """You are a healthcare data analyst. Analyze the following CSV data from a healthcare facility.
+# QI Platform Dashboard Specification: extract CSV values so the dashboard can be drawn.
+CSV_ANALYSIS_PROMPT = """You are a QI (Quality Indicator) data analyst for Australian residential aged care. Analyze the CSV and return ONLY a valid JSON object (no markdown, no code block) that will drive the dashboard.
 
-Return ONLY a valid JSON object (no markdown, no code block) with these keys:
-- "summary": 2-4 sentences describing what this data is about (e.g. facility type, time period, main metrics).
-- "keyMetrics": an object with metric names as keys and numeric or string values (e.g. "Total Patients": 1500, "Average Length of Stay": "4.2 days").
-- "trends": an array of 2-6 trend items, each with "name" and "value" (numeric) for charting (e.g. {"name": "Admissions", "value": 120}).
+CSV COLUMNS TO USE (match by name or meaning; names may vary in case/spacing):
+- facility_name → page title (e.g. "Sunrise Aged Care — Dashboard")
+- quarter_label → quarter selector (e.g. "Q3 2024"); list all unique quarters present (up to 8)
+- resident_id → count residents per quarter; identify residents at risk
 
-Use English. Keep numbers as numbers where possible for charting."""
+14 QI INDICATORS (use these column names or equivalents; rate = % of rows where column = 1 unless noted):
+1. Pressure injuries: PI_01 → rate = % where PI_01 = 1
+2. Falls & major injury: FALL_01, FALL_MAJ → rate = % where FALL_01 = 1
+3. Unplanned weight loss: UWL_SIG, UWL_CON → rate = % where UWL_SIG = 1
+4. Medications: MED_POLY, MED_AP → rate = % where MED_POLY = 1
+5. Activities of daily living: ADL_01 → rate = % where ADL_01 = 1
+6. Incontinence care: IC_IAD → rate = % where IC_IAD = 1
+7. Restrictive practices: RP_01 → rate = % where RP_01 = 1
+8. Hospitalisation: HOSP_ALL → rate = % where HOSP_ALL = 1
+9. Allied health: AH_GAP → rate = count where AH_GAP = 1 (gap count per quarter)
+10. Consumer experience: CONSUMER_SCORE → rate = average score across residents
+11. Quality of life: QOL_SCORE → rate = average score across residents
+12. Workforce: WORKFORCE_ADEQUATE → rate = % where WORKFORCE_ADEQUATE = 1
+13. Enrolled nursing: EN_DIRECT_CARE_PCT → rate = average % across residents
+14. Lifestyle officer: LIFESTYLE_SESSIONS → rate = average sessions per resident
+
+MISSING DATA RULES:
+- If a column is missing entirely → set "valueDisplay": "No data", "status": "grey", "ratePerQuarter": [], "trendArrow": null.
+- If column exists but all values are 0 → set valueDisplay to "0.0%", status to "green", ratePerQuarter with that 0.
+- If only 1 quarter of data → provide that one rate; sparkline will show single point; set trendArrow to null.
+
+TREND ARROW (compare ONLY current quarter rate vs previous quarter rate; two quarters at a time):
+- If |currentRate - previousRate| <= 0.5 (or 0.5%): set "trendArrow": "stable".
+- LOWER-IS-BETTER indicators (id order 1–9): pi, falls, uwl, meds, adl, incontinence, rp, hosp, allied_health. For these: currentRate > previousRate by >0.5% → "trendArrow": "up" (Worsening); currentRate < previousRate by >0.5% → "trendArrow": "down" (Improving).
+- HIGHER-IS-BETTER indicators (id order 10–14): consumer_exp, qol, workforce, enrolled_nursing, lifestyle. For these: currentRate > previousRate by >0.5% → "trendArrow": "down" (Improving); currentRate < previousRate by >0.5% → "trendArrow": "up" (Worsening).
+
+TRAFFIC LIGHT PILL (On track / Monitor / Above threshold) — absolute measure: compare current quarter rate to FIXED thresholds ONLY; has nothing to do with previous quarter.
+- For each indicator provide "thresholdAmber" and "thresholdRed" (numbers; use national/typical values if not in CSV, e.g. for % rates often ~5% amber, ~10% red).
+- LOWER-IS-BETTER (pi, falls, uwl, meds, adl, incontinence, rp, hosp, allied_health): if currentRate > thresholdRed → "status": "red" (Above threshold); if currentRate between thresholdAmber and thresholdRed → "status": "amber" (Monitor); if currentRate < thresholdAmber → "status": "green" (On track).
+- HIGHER-IS-BETTER (consumer_exp, qol, workforce, enrolled_nursing, lifestyle): if currentRate < thresholdRed → "status": "red" (Above threshold); if currentRate between thresholdRed and thresholdAmber → "status": "amber" (Monitor); if currentRate > thresholdAmber → "status": "green" (On track).
+- Missing or no data → "status": "grey".
+
+RESIDENTS AT RISK: A resident is "at risk" if flagged on 2+ indicators in the same quarter (e.g. PI_01=1 and FALL_01=1). Return the count and top resident_id list (anonymised labels like "Resident 004" if possible).
+
+Return this exact JSON structure (use null for missing; all arrays use numbers or null):
+
+- "summary": string, 1-3 sentences describing the facility data and time period.
+- "header": object with "facilityName" (string), "quarterLabels" (array of up to 8 quarter strings), "residentCountForLatestQuarter" (number).
+- "summaryStrip": object with "totalResidents" (number), "categoriesAtRiskCount" (number), "categoriesAtRiskOf" (14), "lastSubmissionDate" (string, e.g. "14 Oct 2024").
+- "indicators": array of exactly 14 objects, in this order: Pressure injuries ("pi"), Falls & major injury ("falls"), Unplanned weight loss ("uwl"), Medications ("meds"), Activities of daily living ("adl"), Incontinence care ("incontinence"), Restrictive practices ("rp"), Hospitalisation ("hosp"), Allied health ("allied_health"), Consumer experience ("consumer_exp"), Quality of life ("qol"), Workforce ("workforce"), Enrolled nursing ("enrolled_nursing"), Lifestyle officer ("lifestyle"). Each object: "id", "name", "csvColumns", "ratePerQuarter", "currentRate", "previousRate", "thresholdAmber", "thresholdRed", "status" ("green"|"amber"|"red"|"grey"), "trendArrow" ("up"|"down"|"stable"|null), "valueDisplay".
+- "residentsAtRisk": object with "count" (number), "residentIds" (array of strings).
+- "keyMetrics": {}.
+- "trends": [].
+
+Use English. Output only valid JSON, no markdown."""
 
 CARE_JOURNEY_PROMPT = """You are a healthcare data analyst. Extract care journey data from the following CSV.
 
@@ -63,15 +108,348 @@ DASHBOARD_PROMPT = """You are a healthcare facility analyst. Based on the follow
 Return ONLY a valid JSON object (no markdown) with keys: "chartData" (array of {name, value}), "trendsComing" (string), "thingsToMonitor" (string). Use English."""
 
 
-def _csv_to_text(content: bytes) -> str:
-    """Convert CSV bytes to a short text preview for the LLM (first 20 rows, truncated)."""
+def _csv_to_text(content: bytes, max_rows: int = 20) -> str:
+    """Convert CSV bytes to text for the LLM. Default 20 rows; use max_rows for dashboard extraction."""
     try:
         text = content.decode("utf-8", errors="replace")
         reader = csv.reader(io.StringIO(text))
-        rows = list(reader)[:20]
+        rows = list(reader)[:max_rows]
         return "\n".join(",".join(r) for r in rows)
     except Exception:
         return content.decode("utf-8", errors="replace")[:15000]
+
+
+def _extract_quarter_labels_from_csv(content: bytes) -> list[str]:
+    """Parse CSV and return ordered unique quarter labels (e.g. Q1 2024, Q2 2024). Uses same decode/column logic as _compute_dashboard_from_csv."""
+    try:
+        text = content.decode("utf-8-sig", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        fieldnames = list(reader.fieldnames or [])
+        q_col = _find_col(fieldnames, "quarter_label")
+        q_raw = _find_col(fieldnames, "quarter")
+        y_raw = _find_col(fieldnames, "year")
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for row in reader:
+            label = (row.get(q_col, "") if q_col else "").strip()
+            if not label and (q_raw or y_raw):
+                q = (row.get(q_raw, "") if q_raw else "").strip()
+                y = (row.get(y_raw, "") if y_raw else "").strip()
+                if q and y:
+                    label = f"{q} {y}"
+            if label and label not in seen:
+                seen.add(label)
+                ordered.append(label)
+        return ordered
+    except Exception as e:
+        logger.warning("_extract_quarter_labels_from_csv failed: %s", e)
+        return []
+
+
+def _csv_to_text_balanced_by_quarter(content: bytes, quarter_labels: list[str], max_per_quarter: int = 50) -> str:
+    """Build CSV text with rows from each quarter so the AI sees all quarters. Header + up to max_per_quarter rows per quarter."""
+    try:
+        text = content.decode("utf-8", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        rows_by_quarter: dict[str, list[dict[str, str]]] = {q: [] for q in quarter_labels}
+        # Column name for quarter (quarter_label or quarter+year)
+        fieldnames = reader.fieldnames or []
+        for row in reader:
+            label = (row.get("quarter_label") or "").strip()
+            if not label and (row.get("quarter") or row.get("year")):
+                q = (row.get("quarter") or "").strip()
+                y = (row.get("year") or "").strip()
+                if q and y:
+                    label = f"{q} {y}"
+            if label in rows_by_quarter and len(rows_by_quarter[label]) < max_per_quarter:
+                rows_by_quarter[label].append(row)
+        # Build output: header + rows from each quarter in order (use csv.writer so commas in values are quoted)
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(fieldnames)
+        for q in quarter_labels:
+            for r in rows_by_quarter.get(q, []):
+                writer.writerow([r.get(f, "") for f in fieldnames])
+        return out.getvalue()[:120000]
+    except Exception as e:
+        logger.warning("_csv_to_text_balanced_by_quarter failed: %s", e)
+        return _csv_to_text(content, max_rows=300)
+
+
+def _csv_to_text_for_dashboard(content: bytes, max_rows: int = 120) -> str:
+    """Legacy: first N rows. Prefer using quarter-aware balanced text when quarters are known."""
+    return _csv_to_text(content, max_rows=max_rows)
+
+
+# 14 QI cards: column, calculation, display, direction, thresholds (green/amber/red)
+# lower_is_better: green below amber_hi, amber between amber_hi and red_hi, red above red_hi
+# higher_is_better: green above amber_lo, amber between red_lo and amber_lo, red below red_lo
+_QI_CARDS = [
+    {"id": "pi", "name": "Pressure injuries", "col": "PI_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 6, "red_hi": 10},
+    {"id": "falls", "name": "Falls & major injury", "col": "FALL_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 8, "red_hi": 12},
+    {"id": "uwl", "name": "Unplanned weight loss", "col": "UWL_SIG", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 4, "red_hi": 8},
+    {"id": "meds", "name": "Medications", "col": "MED_POLY", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 15, "red_hi": 25},
+    {"id": "adl", "name": "Activities of daily living", "col": "ADL_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 15, "red_hi": 25},
+    {"id": "incontinence", "name": "Incontinence care", "col": "IC_IAD", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 4, "red_hi": 8},
+    {"id": "rp", "name": "Restrictive practices", "col": "RP_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 4, "red_hi": 8},
+    {"id": "hosp", "name": "Hospitalisation", "col": "HOSP_ALL", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 9, "red_hi": 14},
+    {"id": "allied_health", "name": "Allied health", "col": "AH_GAP", "calc": "count_binary", "display": "count", "lower": True, "amber_hi": 10, "red_hi": 20},
+    {"id": "consumer_exp", "name": "Consumer experience", "col": "CONSUMER_SCORE", "calc": "avg_float", "display": "pct", "lower": False, "red_lo": 60, "amber_lo": 75},
+    {"id": "qol", "name": "Quality of life", "col": "QOL_SCORE", "calc": "avg_float", "display": "pct", "lower": False, "red_lo": 55, "amber_lo": 70},
+    {"id": "workforce", "name": "Workforce", "col": "WORKFORCE_ADEQUATE", "calc": "pct_binary", "display": "pct", "lower": False, "red_lo": 80, "amber_lo": 90},
+    {"id": "enrolled_nursing", "name": "Enrolled nursing", "col": "EN_DIRECT_CARE_PCT", "calc": "avg_float", "display": "pct", "lower": False, "red_lo": 80, "amber_lo": 90},
+    {"id": "lifestyle", "name": "Lifestyle officer", "col": "LIFESTYLE_SESSIONS", "calc": "avg_int", "display": "decimal", "lower": False, "red_lo": 1.0, "amber_lo": 2.0},
+]
+
+
+def _find_col(fieldnames: list[str], want: str) -> str | None:
+    """Find CSV column by exact or case-insensitive match. Strips BOM and whitespace for comparison; returns original key for row lookup."""
+    want_norm = want.strip().replace("\ufeff", "").lower()
+    for f in fieldnames:
+        fn = (f or "").strip().replace("\ufeff", "").lower()
+        if fn == want_norm or (f or "").strip() == want.strip():
+            return f  # return original key so row[col] works
+    return None
+
+
+def _safe_binary(row: dict, col: str) -> int:
+    """Rule 2: binary columns are string '1'/'0' or number 1/0; treat as 1 only when value equals 1."""
+    if not col:
+        return 0
+    v = row.get(col)
+    if v is None or v == "":
+        return 0
+    s = str(v).strip()
+    if s in ("1", "1.0", "1.00"):
+        return 1
+    try:
+        return 1 if int(float(s)) == 1 else 0
+    except (ValueError, TypeError):
+        return 0
+
+
+def _safe_float(row: dict, col: str) -> float:
+    """Rule 3: float columns - parseFloat before sum."""
+    if col not in row:
+        return 0.0
+    try:
+        return float(str(row.get(col) or "0").strip() or "0")
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def _safe_int(row: dict, col: str) -> int:
+    """Rule 4: integer column for LIFESTYLE_SESSIONS."""
+    if col not in row:
+        return 0
+    try:
+        return int(float(str(row.get(col) or "0").strip() or "0"))
+    except (ValueError, TypeError):
+        return 0
+
+
+def _compute_dashboard_from_csv(content: bytes, quarter_labels: list[str], facility_name: str) -> dict[str, Any]:
+    """Compute 14 QI indicators from CSV using exact rules. Filter by quarter first; binary as number."""
+    try:
+        text = content.decode("utf-8-sig", errors="replace")  # utf-8-sig strips BOM so first column name is clean
+        reader = csv.DictReader(io.StringIO(text))
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    except Exception as e:
+        logger.warning("_compute_dashboard_from_csv parse failed: %s", e)
+        return _empty_dashboard(quarter_labels, facility_name)
+
+    q_col = _find_col(fieldnames, "quarter_label")
+    q_raw = _find_col(fieldnames, "quarter")
+    y_raw = _find_col(fieldnames, "year")
+    res_col = _find_col(fieldnames, "resident_id")
+    fn_col = _find_col(fieldnames, "facility_name")
+
+    def quarter_of(row: dict) -> str:
+        if q_col and row.get(q_col, "").strip():
+            return str(row.get(q_col, "")).strip()
+        q = str(row.get(q_raw or "quarter", "")).strip()
+        y = str(row.get(y_raw or "year", "")).strip()
+        return f"{q} {y}" if q and y else ""
+
+    rows_by_q: dict[str, list[dict]] = {}
+    for q in quarter_labels:
+        rows_by_q[q] = []
+    for row in rows:
+        ql = quarter_of(row)
+        if ql in rows_by_q:
+            rows_by_q[ql].append(row)
+
+    fall_col = _find_col(fieldnames, "FALL_01")
+    for q in quarter_labels:
+        rq = rows_by_q.get(q, [])
+        n = len(rq)
+        if n > 0 and fall_col:
+            sample_vals = [str(r.get(fall_col, ""))[:20] for r in rq[:3]]
+            logger.info("[compute] quarter=%s rows=%d FALL_01 col=%s sample_vals=%s", q, n, fall_col, sample_vals)
+
+    indicators = []
+    for card in _QI_CARDS:
+        col = _find_col(fieldnames, card["col"])
+        values_per_quarter: list[float | int] = []
+        for q in quarter_labels:
+            rq = rows_by_q.get(q, [])
+            n = len(rq)
+            if n == 0:
+                values_per_quarter.append(None)
+                continue
+            if card["calc"] == "pct_binary":
+                if not col:
+                    values_per_quarter.append(None)
+                    continue
+                count = sum(_safe_binary(r, col) for r in rq)
+                pct = round(100.0 * count / n, 1)  # formula: (count of 1s / rows in quarter) * 100
+                values_per_quarter.append(pct)
+                if card["id"] == "falls":
+                    logger.info("[Falls] quarter=%s n=%d count(FALL_01=1)=%d rate=%.1f%%", q, n, count, pct)
+            elif card["calc"] == "count_binary":
+                if not col:
+                    values_per_quarter.append(None)
+                    continue
+                count = sum(_safe_binary(r, col) for r in rq)
+                values_per_quarter.append(count)
+            elif card["calc"] == "avg_float":
+                if not col:
+                    values_per_quarter.append(None)
+                    continue
+                total = sum(_safe_float(r, col) for r in rq)
+                values_per_quarter.append(round(total / n, 1))
+            elif card["calc"] == "avg_int":
+                if not col:
+                    values_per_quarter.append(None)
+                    continue
+                total = sum(_safe_int(r, col) for r in rq)
+                values_per_quarter.append(round(total / n, 1))
+            else:
+                values_per_quarter.append(None)
+
+        # current = last quarter, previous = second-to-last
+        current_rate = values_per_quarter[-1] if values_per_quarter else None
+        previous_rate = values_per_quarter[-2] if len(values_per_quarter) >= 2 else None
+
+        # valueDisplay
+        if current_rate is None:
+            value_display = "N/A"
+        elif card["display"] == "pct":
+            value_display = f"{current_rate}%"
+        elif card["display"] == "count":
+            value_display = str(int(current_rate))
+        else:
+            value_display = f"{current_rate}"
+
+        # trendArrow: 0.5% rule
+        trend_arrow = None
+        if current_rate is not None and previous_rate is not None:
+            diff = (current_rate or 0) - (previous_rate or 0)
+            if abs(diff) <= 0.5:
+                trend_arrow = "stable"
+            else:
+                if card["lower"]:
+                    trend_arrow = "up" if diff > 0 else "down"
+                else:
+                    trend_arrow = "down" if diff > 0 else "up"
+
+        # status from fixed thresholds
+        status = "grey"
+        if current_rate is not None:
+            if card["lower"]:
+                if current_rate < card["amber_hi"]:
+                    status = "green"
+                elif current_rate <= card["red_hi"]:
+                    status = "amber"
+                else:
+                    status = "red"
+            else:
+                # higher is better: green above amber_lo, amber between red_lo and amber_lo, red below red_lo
+                rlo = card.get("red_lo", 0)
+                alo = card.get("amber_lo", 100)
+                if current_rate >= alo:
+                    status = "green"
+                elif current_rate >= rlo:
+                    status = "amber"
+                else:
+                    status = "red"
+
+        # Rule 5/6: no rows -> N/A; column exists but all 0 -> show 0
+        if current_rate is None and any(v is not None for v in values_per_quarter):
+            pass  # keep N/A if mixed
+        rate_list = [v if v is not None else None for v in values_per_quarter]
+
+        indicators.append({
+            "id": card["id"],
+            "name": card["name"],
+            "ratePerQuarter": rate_list,
+            "currentRate": current_rate,
+            "previousRate": previous_rate,
+            "status": status,
+            "trendArrow": trend_arrow,
+            "valueDisplay": value_display,
+        })
+
+    # Resident count for latest quarter
+    latest_q = quarter_labels[-1] if quarter_labels else ""
+    latest_rows = rows_by_q.get(latest_q, [])
+    resident_count = len(latest_rows)
+
+    # Residents at risk: 2+ flags in same quarter (binary indicators 1-9)
+    binary_cols = [_find_col(fieldnames, c["col"]) for c in _QI_CARDS[:9]]
+    at_risk_ids: list[str] = []
+    for row in latest_rows:
+        rid = str(row.get(res_col or "resident_id", "")).strip() if res_col else ""
+        if not rid:
+            continue
+        flags = sum(1 for col in binary_cols if col and _safe_binary(row, col) == 1)
+        if flags >= 2:
+            at_risk_ids.append(rid if len(rid) < 12 else f"Resident {rid[-3:]}")
+    at_risk_ids = at_risk_ids[:15]
+
+    # Categories at risk (red) in latest quarter
+    red_count = sum(1 for ind in indicators if ind.get("status") == "red")
+
+    # Last submission date from latest quarter label
+    last_sub = latest_q if latest_q else ""
+
+    facility = facility_name or (latest_rows[0].get(fn_col or "facility_name", "Facility") if latest_rows else "Facility")
+
+    return {
+        "summary": f"Dashboard computed from CSV for {facility}. {len(quarter_labels)} quarter(s); {resident_count} residents in latest quarter.",
+        "header": {
+            "facilityName": facility,
+            "quarterLabels": quarter_labels,
+            "residentCountForLatestQuarter": resident_count,
+        },
+        "summaryStrip": {
+            "totalResidents": resident_count,
+            "categoriesAtRiskCount": red_count,
+            "categoriesAtRiskOf": 14,
+            "lastSubmissionDate": last_sub,
+        },
+        "indicators": indicators,
+        "residentsAtRisk": {"count": len(at_risk_ids), "residentIds": at_risk_ids},
+        "keyMetrics": {},
+        "trends": [],
+    }
+
+
+def _empty_dashboard(quarter_labels: list[str], facility_name: str) -> dict[str, Any]:
+    """Return minimal dashboard when computation fails."""
+    return {
+        "summary": "No data",
+        "header": {"facilityName": facility_name or "Facility", "quarterLabels": quarter_labels, "residentCountForLatestQuarter": 0},
+        "summaryStrip": {"totalResidents": 0, "categoriesAtRiskCount": 0, "categoriesAtRiskOf": 14, "lastSubmissionDate": ""},
+        "indicators": [
+            {"id": c["id"], "name": c["name"], "ratePerQuarter": [], "currentRate": None, "previousRate": None, "status": "grey", "trendArrow": None, "valueDisplay": "N/A"}
+            for c in _QI_CARDS
+        ],
+        "residentsAtRisk": {"count": 0, "residentIds": []},
+        "keyMetrics": {},
+        "trends": [],
+    }
 
 
 def _csv_to_text_for_care_journey(content: bytes, max_rows: int = 500) -> str:
@@ -244,25 +622,29 @@ async def upload_and_analyze_csv(
     current_user: dict = Depends(get_current_user),
 ):
     """Upload a CSV file, analyze with ChatGPT, store in history. Returns uploadId, filename, analysis."""
+    logger.info("[upload-csv] Step 1: Received request — filename=%s", file.filename)
     sub = current_user.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a CSV.")
     content = await file.read()
+    logger.info("[upload-csv] Step 2: Read file — size=%d bytes (%.2f KB)", len(content), len(content) / 1024)
     if len(content) > MAX_CSV_BYTES:
         raise HTTPException(status_code=400, detail="CSV must be under 5 MB.")
-    csv_text = _csv_to_text(content)
-    if not csv_text.strip():
-        raise HTTPException(status_code=400, detail="CSV is empty or unreadable.")
+    # Extract quarter labels from full CSV so we show all quarters (Q1–Q4) on dashboard
+    quarter_labels = _extract_quarter_labels_from_csv(content)
+    logger.info("[upload-csv] Step 2b: Quarters in CSV — %s", quarter_labels)
+    if not quarter_labels:
+        raise HTTPException(status_code=400, detail="CSV has no quarter data (need quarter_label or quarter+year).")
+    # Compute 14 QI indicators from CSV using exact rules (no AI for numbers)
     try:
-        analysis_obj = _call_chatgpt(CSV_ANALYSIS_PROMPT, f"CSV data:\n\n{csv_text}")
-        analysis_str = json.dumps(analysis_obj)
-    except HTTPException:
-        raise
+        analysis_obj = _compute_dashboard_from_csv(content, quarter_labels, "")
+        logger.info("[upload-csv] Step 3: Dashboard computed from CSV — indicators=%d", len(analysis_obj.get("indicators", [])))
     except Exception as e:
-        logger.warning("CSV analysis failed: %s", e)
-        raise HTTPException(status_code=502, detail=f"Analysis failed: {str(e)}") from e
+        logger.warning("Dashboard computation failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"Could not compute dashboard: {str(e)}") from e
+    analysis_str = json.dumps(analysis_obj)
 
     csv_content = content.decode("utf-8", errors="replace")
     upload_id = None
@@ -270,7 +652,7 @@ async def upload_and_analyze_csv(
         upload_id = upload_history_db.put_upload(
             sub, file.filename or "data.csv", analysis_str, csv_content=csv_content
         )
-        logger.info("[upload_and_analyze_csv] saved upload sub=%s uploadId=%s", sub[:20] + "..." if len(sub) > 20 else sub, upload_id)
+        logger.info("[upload-csv] Step 5: Saved to storage — uploadId=%s, analysisLen=%d", upload_id, len(analysis_str))
     except Exception as e:
         logger.warning("Save upload failed (table may not exist): %s", e)
         # Still return analysis so Upload Data works without the history table (e.g. local dev)
@@ -330,28 +712,31 @@ async def upload_and_analyze_csv(
                             normalized[s] = {"date": "", "days": 0}
                     normalized = _compute_durations_from_dates(normalized)
                     care_journey_db.put_journey(sub, upload_id, rid, name, risk, normalized)
-                logger.info("[upload_and_analyze_csv] stored %d care journeys for uploadId=%s", min(len(patients), 500), upload_id)
+                logger.info("[upload-csv] Step 6: Care journey stored — count=%d, uploadId=%s", min(len(patients), 500), upload_id)
             except Exception as e:
                 logger.warning("Care journey save failed (table may not exist): %s", e)
 
-    return {
+    payload = {
         "uploadId": upload_id,
         "filename": file.filename or "data.csv",
         "analysis": analysis_obj,
         "saved": upload_id is not None,
     }
+    logger.info("[upload-csv] Step 7: Sending response — uploadId=%s, filename=%s, saved=%s", upload_id, payload["filename"], payload["saved"])
+    return payload
 
 
 @router.get("/history", response_model=list)
 def list_upload_history(current_user: dict = Depends(get_current_user)):
     """List all CSV uploads for the current user."""
+    logger.info("[upload-csv] GET /history — request received")
     sub = current_user.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Not authenticated")
     items = upload_history_db.list_uploads(sub)
-    logger.info("[list_upload_history] sub=%s count=%d", sub[:20] + "..." if len(sub) > 20 else sub, len(items))
-    # Return minimal for list (no full analysis to keep payload small)
-    return [{"uploadId": u["uploadId"], "filename": u["filename"], "uploadedAt": u["uploadedAt"]} for u in items]
+    out = [{"uploadId": u["uploadId"], "filename": u["filename"], "uploadedAt": u["uploadedAt"]} for u in items]
+    logger.info("[upload-csv] GET /history — response: count=%d", len(out))
+    return out
 
 
 @router.get("/history/{upload_id}/download", response_class=Response)
@@ -360,6 +745,7 @@ def download_upload_csv(
     current_user: dict = Depends(get_current_user),
 ):
     """Download the CSV file for an upload. Returns stored CSV content or analysis as text if CSV not stored."""
+    logger.info("[upload-csv] GET /history/%s/download — request received", upload_id)
     sub = current_user.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -368,6 +754,7 @@ def download_upload_csv(
         raise HTTPException(status_code=404, detail="Upload not found.")
     filename = (u.get("filename") or "data").rstrip(".csv") + ".csv"
     csv_content = u.get("csv_content")
+    logger.info("[upload-csv] GET /history/%s/download — response: filename=%s, hasCsvContent=%s", upload_id, filename, bool(csv_content))
     if csv_content:
         return Response(
             content=csv_content.encode("utf-8"),
@@ -392,6 +779,7 @@ def get_upload_by_id(
     current_user: dict = Depends(get_current_user),
 ):
     """Get one upload's full data (including analysis). csv_content omitted; use download endpoint for file."""
+    logger.info("[upload-csv] GET /history/%s — request received", upload_id)
     sub = current_user.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -399,6 +787,7 @@ def get_upload_by_id(
     if not u:
         raise HTTPException(status_code=404, detail="Upload not found.")
     out = {k: v for k, v in u.items() if k != "csv_content"}
+    logger.info("[upload-csv] GET /history/%s — response: keys=%s, hasAnalysis=%s", upload_id, list(out.keys()), "analysis" in out)
     return out
 
 
@@ -408,6 +797,7 @@ def delete_upload_by_id(
     current_user: dict = Depends(get_current_user),
 ):
     """Delete one upload and its Care Journey records."""
+    logger.info("[upload-csv] DELETE /history/%s — request received", upload_id)
     sub = current_user.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -415,6 +805,7 @@ def delete_upload_by_id(
     if not ok:
         raise HTTPException(status_code=404, detail="Upload not found.")
     care_journey_db.delete_journeys_by_upload(sub, upload_id)
+    logger.info("[upload-csv] DELETE /history/%s — response: ok=True", upload_id)
     return {"ok": True}
 
 

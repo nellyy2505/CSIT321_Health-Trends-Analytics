@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
-import { uploadAndAnalyzeCSV, getUploadHistory } from "../services/api";
+import { uploadAndAnalyzeCSV, getUploadHistory, downloadUploadCSV, deleteUpload } from "../services/api";
 
 const MAX_SIZE_MB = 5;
 const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const SELECTED_UPLOAD_KEY = "caredata_selected_upload_id";
 
 function formatUploadDate(isoStr) {
   if (!isoStr) return "—";
@@ -13,13 +14,26 @@ function formatUploadDate(isoStr) {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+const UPLOAD_PROGRESS_ESTIMATE_MS = 45000; // ~45s max for progress simulation
+const UPLOAD_PROGRESS_TICK_MS = 400;
+
 export default function UploadCSVPage() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [dragOver, setDragOver] = useState(false);
+  const [selectedUploadId, setSelectedUploadId] = useState(() => localStorage.getItem(SELECTED_UPLOAD_KEY) || "");
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const setSelected = (uploadId) => {
+    if (uploadId) localStorage.setItem(SELECTED_UPLOAD_KEY, uploadId);
+    else localStorage.removeItem(SELECTED_UPLOAD_KEY);
+    setSelectedUploadId(uploadId || "");
+  };
 
   const loadHistory = () => {
     getUploadHistory()
@@ -63,21 +77,41 @@ export default function UploadCSVPage() {
       setError(`File must be under ${MAX_SIZE_MB} MB.`);
       return;
     }
+    console.log("[upload-csv page] Step 1: Starting upload", { fileName: file.name, fileSize: file.size, fileSizeMB: (file.size / 1024 / 1024).toFixed(2) });
     setUploading(true);
+    setUploadProgress(0);
     setError("");
     setResult(null);
+    const increment = (100 / (UPLOAD_PROGRESS_ESTIMATE_MS / UPLOAD_PROGRESS_TICK_MS));
+    const progressTimer = setInterval(() => {
+      setUploadProgress((p) => {
+        if (p >= 90) return p;
+        const next = p + increment;
+        return next >= 90 ? 90 : next;
+      });
+    }, UPLOAD_PROGRESS_TICK_MS);
     try {
       const data = await uploadAndAnalyzeCSV(file);
+      clearInterval(progressTimer);
+      setUploadProgress(100);
+      console.log("[upload-csv page] Step 2: Upload complete, received", { uploadId: data?.uploadId, filename: data?.filename, saved: data?.saved });
       setResult(data);
+      console.log("[upload-csv page] Step 3: Refreshing history");
       loadHistory();
+      setTimeout(() => {
+        setUploading(false);
+        setUploadProgress(0);
+      }, 400);
     } catch (err) {
+      clearInterval(progressTimer);
+      setUploadProgress(0);
+      setUploading(false);
+      console.log("[upload-csv page] Step: Upload failed", { error: err?.message, response: err?.response?.data });
       const detail = err.response?.data?.detail;
       const msg = detail != null
         ? (Array.isArray(detail) ? detail.join(" ") : String(detail))
         : (err.message || "Upload failed.");
       setError(msg);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -86,6 +120,33 @@ export default function UploadCSVPage() {
     setError("");
     setResult(null);
     if (document.getElementById("file-input")) document.getElementById("file-input").value = "";
+  };
+
+  const handleDownload = async (uploadId, filename) => {
+    if (downloadingId) return;
+    setDownloadingId(uploadId);
+    try {
+      await downloadUploadCSV(uploadId, filename || "data.csv");
+    } catch (err) {
+      console.error("Download failed:", err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDelete = async (item) => {
+    if (deletingId) return;
+    if (!window.confirm(`Delete "${item.filename || item.uploadId}"? This cannot be undone.`)) return;
+    setDeletingId(item.uploadId);
+    try {
+      await deleteUpload(item.uploadId);
+      if (selectedUploadId === item.uploadId) setSelected("");
+      loadHistory();
+    } catch (err) {
+      console.error("Delete failed:", err);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -104,7 +165,7 @@ export default function UploadCSVPage() {
         </div>
 
         {/* Two columns: upload card | submission history */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start">
           {/* LEFT: Quarterly CSV upload */}
           <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
@@ -184,22 +245,36 @@ export default function UploadCSVPage() {
                   {result.saved ? "CSV uploaded and validated successfully." : "Analysis complete. " + (result.filename || "")}
                 </span>
                 {result.saved && (
-                  <Link to="/dashboard-csv" className="text-base font-medium text-primary hover:underline whitespace-nowrap">
+                  <Link to="/dashboard" className="text-base font-medium text-primary hover:underline whitespace-nowrap">
                     View Dashboard →
                   </Link>
                 )}
               </div>
             )}
 
-            {/* Submit row — single button, no Clear */}
+            {/* Submit row — single button with progress bar when processing */}
             <div className="mx-5 mt-5 mb-5">
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={uploading || !file}
-                className="w-full bg-primary text-white py-2.5 rounded-md font-medium text-base hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full py-2.5 rounded-md font-medium text-base transition disabled:cursor-not-allowed relative overflow-hidden border-2 ${
+                  uploading
+                    ? "border-primary bg-white"
+                    : "bg-primary text-white border-primary hover:bg-orange-600"
+                } ${!file ? "opacity-50" : ""}`}
               >
-                {uploading ? "Processing…" : "Process & Validate CSV"}
+                {uploading ? (
+                  <>
+                    <div
+                      className="absolute inset-0 bg-primary transition-all duration-300 ease-out"
+                      style={{ width: `${uploadProgress}%`, left: 0, top: 0, bottom: 0 }}
+                    />
+                    <span className="relative z-10 text-gray-900">Processing… {Math.round(uploadProgress)}%</span>
+                  </>
+                ) : (
+                  "Process & Validate CSV"
+                )}
               </button>
             </div>
           </div>
@@ -218,25 +293,64 @@ export default function UploadCSVPage() {
               {history.length === 0 ? (
                 <p className="text-sm text-gray-500 py-4">No submissions yet. Upload a CSV above.</p>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
                   <thead>
                     <tr className="text-left text-sm font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                      <th className="pb-2 pr-2">File</th>
-                      <th className="pb-2 pr-2">Date</th>
-                      <th className="pb-2">Status</th>
+                      <th className="pb-2 pr-2 w-[38%]">File</th>
+                      <th className="pb-2 pr-2 w-[22%]">Date</th>
+                      <th className="pb-2 pr-2 w-[18%]">Status</th>
+                      <th className="pb-2 text-right w-[22%]">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((item) => (
-                      <tr key={item.uploadId} className="border-b border-gray-100 last:border-0">
-                        <td className="py-2.5 pr-2 text-gray-900 font-medium truncate max-w-[140px]" title={item.filename}>
+                      <tr key={item.uploadId} className={`border-b border-gray-100 last:border-0 ${selectedUploadId === item.uploadId ? "bg-orange-50/50" : ""}`}>
+                        <td className="py-2.5 pr-2 text-gray-900 font-medium break-words min-w-0" title={item.filename}>
                           {item.filename || "—"}
                         </td>
                         <td className="py-2.5 pr-2 text-gray-500 whitespace-nowrap">{formatUploadDate(item.uploadedAt)}</td>
-                        <td className="py-2.5">
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-                            Submitted
-                          </span>
+                        <td className="py-2.5 pr-2">
+                          {selectedUploadId === item.uploadId ? (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/20 text-orange-800">Displaying</span>
+                          ) : (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800">Submitted</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(item.uploadId, item.filename)}
+                              disabled={downloadingId === item.uploadId}
+                              className="p-1.5 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                              title="Download CSV"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelected(selectedUploadId === item.uploadId ? "" : item.uploadId)}
+                              className={`p-1.5 rounded border ${selectedUploadId === item.uploadId ? "bg-primary border-primary text-white" : "border-gray-300 bg-white text-gray-500 hover:bg-orange-50"}`}
+                              title={selectedUploadId === item.uploadId ? "Used for dashboard display" : "Use for dashboard display"}
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item)}
+                              disabled={deletingId === item.uploadId}
+                              className="p-1.5 rounded border border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:opacity-60"
+                              title="Delete"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                              </svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
