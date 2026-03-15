@@ -79,42 +79,44 @@ export default function Navbar() {
           <span className="text-lg font-bold text-white leading-tight whitespace-nowrap">CareData Portal</span>
         </Link>
 
-        <button
-          type="button"
-          className="sm:hidden text-white focus:outline-none p-2 shrink-0"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-label="Menu"
-        >
-          {isOpen ? "✕" : "☰"}
-        </button>
+        {user && (
+          <button
+            type="button"
+            className="sm:hidden text-white focus:outline-none p-2 shrink-0"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label="Menu"
+          >
+            {isOpen ? "✕" : "☰"}
+          </button>
+        )}
 
-        <div className={`${isOpen ? "flex" : "hidden"} sm:flex flex-col sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between w-full sm:max-w-[800px] sm:ml-10 gap-2 sm:gap-3`}>
-          <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:gap-2 sm:mr-20">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsOpen(false)}
-                className={`px-4 py-2 rounded-lg text-base font-medium transition-all whitespace-nowrap shrink-0 ${
-                  isActive(item.path)
-                    ? "bg-primary text-black shadow-md"
-                    : "text-gray-300 hover:text-primary hover:bg-grayish"
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </div>
-          <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:gap-4">
-            <Link
-              to="/upload-csv"
-              onClick={() => setIsOpen(false)}
-              className="px-6 py-3 rounded-lg text-base font-bold text-center bg-orange-400 text-gray-900 hover:bg-orange-300 transition shadow-sm whitespace-nowrap shrink-0 border border-orange-300"
-            >
-              + Upload CSV
-            </Link>
-            {user ? (
-              <>
+        <div className={`${user ? (isOpen ? "flex" : "hidden") : "flex"} sm:flex flex-col sm:flex-row sm:flex-nowrap sm:items-center sm:justify-end sm:flex-1 sm:ml-10 gap-2 sm:gap-3`}>
+          {user ? (
+            <>
+              <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:gap-2 sm:mr-20">
+                {NAV_ITEMS.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsOpen(false)}
+                    className={`px-4 py-2 rounded-lg text-base font-medium transition-all whitespace-nowrap shrink-0 ${
+                      isActive(item.path)
+                        ? "bg-primary text-black shadow-md"
+                        : "text-gray-300 hover:text-primary hover:bg-grayish"
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+              <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:gap-4">
+                <Link
+                  to="/upload-csv"
+                  onClick={() => setIsOpen(false)}
+                  className="px-6 py-3 rounded-lg text-base font-bold text-center bg-orange-400 text-gray-900 hover:bg-orange-300 transition shadow-sm whitespace-nowrap shrink-0 border border-orange-300"
+                >
+                  + Upload CSV
+                </Link>
                 <span className="font-medium text-gray-100 whitespace-nowrap shrink-0 sm:ml-2">Hello, {user.firstName || "User"}</span>
                 <button
                   type="button"
@@ -123,17 +125,17 @@ export default function Navbar() {
                 >
                   Logout
                 </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                onClick={() => setIsOpen(false)}
-                className="px-6 py-2.5 min-w-[140px] text-center rounded-md font-semibold transition shadow-md bg-primary text-white hover:bg-orange-600 whitespace-nowrap shrink-0"
-              >
-                Sign In
-              </Link>
-            )}
-          </div>
+              </div>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              onClick={() => setIsOpen(false)}
+              className="px-6 py-2.5 min-w-[140px] text-center rounded-md font-semibold transition shadow-md bg-primary text-white hover:bg-orange-600 whitespace-nowrap shrink-0"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
     </nav>

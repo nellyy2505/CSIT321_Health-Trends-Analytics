@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import Button from "../common/Button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 
@@ -9,25 +8,14 @@ export default function Hero() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem("token"));
 
   useEffect(() => {
-    // Check login status whenever location changes or component mounts
     setIsLoggedIn(!!localStorage.getItem("token"));
-    
-    // Also check periodically in case token is set asynchronously
-    const interval = setInterval(() => {
-      setIsLoggedIn(!!localStorage.getItem("token"));
-    }, 300);
-    
+    const interval = setInterval(() => setIsLoggedIn(!!localStorage.getItem("token")), 300);
     return () => clearInterval(interval);
   }, [location.pathname]);
 
-  const container = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.25 } },
-  };
-
-  const item = {
-    hidden: { y: 80, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 0.8, ease: "easeOut" } },
+  const scrollToFeatures = () => {
+    const el = document.getElementById("features");
+    el?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -35,28 +23,13 @@ export default function Hero() {
       className="relative flex items-start justify-center text-center text-white bg-black pt-20"
       style={{ minHeight: "115vh", overflow: "visible", paddingBottom: "4rem" }}
     >
-      {/* 160px black strip between navbar and banner image */}
       <div className="absolute top-0 left-0 w-full h-40 bg-[#040404] z-10" />
-
-      {/* IMAGE + EFFECTS LAYER (offset by 160px) */}
       <div className="absolute top-40 left-0 right-0 bottom-0 overflow-hidden">
-        {/* Background image (NO motion) */}
-        <img
-          src="/banner.png"
-          alt="Care Data Banner"
-          className="w-full h-full object-cover object-center"
-        />
-
-        {/* Gradient only on the last ~30%: transparent white -> solid white */}
+        <img src="/banner.png" alt="Care Data Banner" className="w-full h-full object-cover object-center" />
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "linear-gradient(to bottom, rgba(255,255,255,0) 70%, rgba(255,255,255,1) 100%)",
-          }}
+          style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0) 70%, rgba(255,255,255,1) 100%)" }}
         />
-
-        {/* Ambient glows (kept) */}
         <motion.div
           className="absolute bottom-1/4 right-1/3 w-[250px] h-[250px] bg-primary/25 rounded-full blur-3xl"
           animate={{ y: [0, 25, 0], opacity: [0.3, 0.5, 0.3] }}
@@ -64,62 +37,76 @@ export default function Hero() {
         />
       </div>
 
-      {/* CONTENT WRAPPER (sits inside the black strip) */}
-      <div className="relative z-20 px-6 max-w-2xl pb-16 pt-10">
-        {/* Animated heading (white text) */}
-        <motion.div
-          className="flex justify-center gap-3 mb-8"
-          variants={container}
-          initial="hidden"
-          animate="visible"
-          style={{ lineHeight: 1.35 }}
-        >
-          {["Upload.", "Convert.", "Comply."].map((word, i) => (
-            <motion.span
-              key={i}
-              variants={item}
-              className="inline-block text-5xl sm:text-6xl font-bold text-white pb-5"
-              style={{ display: "inline-block", transformOrigin: "bottom center" }}
-            >
-              {word}
-            </motion.span>
-          ))}
-        </motion.div>
-
-        {/* Subtitle */}
+      <div className="relative z-20 px-6 max-w-3xl pb-16 pt-10">
         <motion.p
-          className="text-xl text-gray-200 mb-10"
+          className="text-sm font-semibold text-primary uppercase tracking-widest mb-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          Australian Residential Aged Care
+        </motion.p>
+        <motion.h1
+          className="text-5xl sm:text-6xl lg:text-7xl font-light text-white tracking-tight leading-tight mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.6 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          style={{ lineHeight: 1.35 }}
         >
-          Turn your aged-care facility data into government-standard CSVs
-          effortlessly — with no manual formatting, no guesswork.
+          <span className="block mb-2">Quality indicators,</span>
+          <strong className="font-semibold text-primary">visualised clearly</strong>
+        </motion.h1>
+        <motion.p
+          className="text-lg sm:text-xl text-white mb-10 max-w-4xl mx-auto leading-relaxed"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <span className="block">Upload your quarterly GPMS export and instantly see all 14 AIHW QI indicators, </span>
+          <span className="block">trends, benchmarks, and resident risk flags — in one place.</span>
         </motion.p>
 
-        {/* Welcome message when logged in, button when not logged in */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, ease: "easeOut", delay: 0.8 }}
+          className="flex flex-wrap justify-center gap-3 mb-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
         >
           {isLoggedIn ? (
-            <div className="text-center">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Welcome to DataCare Portal
-              </h2>
-              <p className="text-lg text-gray-200 max-w-xl mx-auto">
-                Upload your health records to view clear insights and track your health securely.
-              </p>
-            </div>
+            <p className="text-orange-700 font-bold text-2xl sm:text-3xl">Welcome to CareData Portal</p>
           ) : (
-            <Button
-              onClick={() => navigate("/register")}
-              className="bg-primary text-black px-10 py-4 text-lg rounded-full hover:bg-orange-600 hover:scale-105 transition-all font-semibold shadow-lg"
-            >
-              Get Started Today
-            </Button>
+            <>
+              <button
+                onClick={() => navigate("/login")}
+                className="bg-primary text-black px-7 py-3 text-base font-semibold rounded-lg hover:bg-orange-600 transition shadow-md"
+              >
+                Get started
+              </button>
+              <button
+                type="button"
+                onClick={scrollToFeatures}
+                className="bg-white/50 text-gray-900 border-2 border-primary px-7 py-3 text-base font-semibold rounded-lg hover:bg-white/70 transition shadow-md backdrop-blur-sm"
+              >
+                See features
+              </button>
+            </>
           )}
+        </motion.div>
+
+        <motion.div
+          className="flex flex-nowrap justify-center items-center gap-2 overflow-x-auto pb-1"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+        >
+          {["QI Program Manual 4.0", "14 indicators", "AIHW benchmarking", "GPMS compatible", "Australian aged care"].map((badge) => (
+            <span
+              key={badge}
+              className="text-xs font-semibold text-gray-900 bg-white/50 border border-orange-200 px-3 py-1.5 rounded-full whitespace-nowrap shrink-0 shadow-sm backdrop-blur-sm"
+            >
+              {badge}
+            </span>
+          ))}
         </motion.div>
       </div>
     </section>
