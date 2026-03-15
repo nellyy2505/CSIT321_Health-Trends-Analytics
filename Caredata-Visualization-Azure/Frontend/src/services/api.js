@@ -101,6 +101,27 @@ export const getUploadById = async (uploadId) => {
   return response.data;
 };
 
+/** Download CSV file for an upload. Triggers browser download. */
+export const downloadUploadCSV = async (uploadId, filename = "data.csv") => {
+  const response = await api.get(`/upload-csv/history/${uploadId}/download`, {
+    responseType: "blob",
+  });
+  const disposition = response.headers["content-disposition"];
+  let name = filename;
+  if (disposition && disposition.includes("filename=")) {
+    const match = disposition.match(/filename="?([^";\n]+)"?/);
+    if (match) name = match[1].trim();
+  }
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", name);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
 export const deleteUpload = async (uploadId) => {
   const response = await api.delete(`/upload-csv/history/${uploadId}`);
   return response.data;

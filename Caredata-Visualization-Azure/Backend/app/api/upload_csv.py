@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -263,9 +264,12 @@ async def upload_and_analyze_csv(
         logger.warning("CSV analysis failed: %s", e)
         raise HTTPException(status_code=502, detail=f"Analysis failed: {str(e)}") from e
 
+    csv_content = content.decode("utf-8", errors="replace")
     upload_id = None
     try:
-        upload_id = upload_history_db.put_upload(sub, file.filename or "data.csv", analysis_str)
+        upload_id = upload_history_db.put_upload(
+            sub, file.filename or "data.csv", analysis_str, csv_content=csv_content
+        )
         logger.info("[upload_and_analyze_csv] saved upload sub=%s uploadId=%s", sub[:20] + "..." if len(sub) > 20 else sub, upload_id)
     except Exception as e:
         logger.warning("Save upload failed (table may not exist): %s", e)
@@ -350,19 +354,52 @@ def list_upload_history(current_user: dict = Depends(get_current_user)):
     return [{"uploadId": u["uploadId"], "filename": u["filename"], "uploadedAt": u["uploadedAt"]} for u in items]
 
 
-@router.get("/history/{upload_id}")
-def get_upload_by_id(
+@router.get("/history/{upload_id}/download", response_class=Response)
+def download_upload_csv(
     upload_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Get one upload's full data (including analysis)."""
+    """Download the CSV file for an upload. Returns stored CSV content or analysis as text if CSV not stored."""
     sub = current_user.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Not authenticated")
     u = upload_history_db.get_upload(sub, upload_id)
     if not u:
         raise HTTPException(status_code=404, detail="Upload not found.")
-    return u
+    filename = (u.get("filename") or "data").rstrip(".csv") + ".csv"
+    csv_content = u.get("csv_content")
+    if csv_content:
+        return Response(
+            content=csv_content.encode("utf-8"),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    # Fallback: return analysis as text for older uploads without stored CSV
+    analysis = u.get("analysis") or ""
+    if isinstance(analysis, dict):
+        import json as _json
+        analysis = _json.dumps(analysis, indent=2)
+    return Response(
+        content=analysis.encode("utf-8"),
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.analysis.txt"'},
+    )
+
+
+@router.get("/history/{upload_id}")
+def get_upload_by_id(
+    upload_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get one upload's full data (including analysis). csv_content omitted; use download endpoint for file."""
+    sub = current_user.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    u = upload_history_db.get_upload(sub, upload_id)
+    if not u:
+        raise HTTPException(status_code=404, detail="Upload not found.")
+    out = {k: v for k, v in u.items() if k != "csv_content"}
+    return out
 
 
 @router.delete("/history/{upload_id}")

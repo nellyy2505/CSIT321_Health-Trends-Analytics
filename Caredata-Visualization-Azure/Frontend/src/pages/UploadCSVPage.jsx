@@ -1,16 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
-import { uploadAndAnalyzeCSV } from "../services/api";
+import { uploadAndAnalyzeCSV, getUploadHistory } from "../services/api";
 
 const MAX_SIZE_MB = 5;
 const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+function formatUploadDate(isoStr) {
+  if (!isoStr) return "—";
+  const d = new Date(isoStr);
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
 
 export default function UploadCSVPage() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [dragOver, setDragOver] = useState(false);
+
+  const loadHistory = () => {
+    getUploadHistory()
+      .then((list) => setHistory(Array.isArray(list) ? list : []))
+      .catch(() => setHistory([]));
+  };
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0];
@@ -18,6 +37,21 @@ export default function UploadCSVPage() {
     setError("");
     setResult(null);
   };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer?.files?.[0];
+    if (f && f.name.toLowerCase().endsWith(".csv")) setFile(f);
+    setError("");
+    setResult(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+  const handleDragLeave = () => setDragOver(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,6 +69,7 @@ export default function UploadCSVPage() {
     try {
       const data = await uploadAndAnalyzeCSV(file);
       setResult(data);
+      loadHistory();
     } catch (err) {
       const detail = err.response?.data?.detail;
       const msg = detail != null
@@ -46,100 +81,169 @@ export default function UploadCSVPage() {
     }
   };
 
+  const removeFile = () => {
+    setFile(null);
+    setError("");
+    setResult(null);
+    if (document.getElementById("file-input")) document.getElementById("file-input").value = "";
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
 
-      <main className="flex-grow flex items-center justify-center px-4 mt-24 pb-12 pt-12">
-        <div className="bg-white w-full max-w-2xl rounded-2xl shadow p-8 border border-gray-200">
-          <h1 className="text-3xl font-semibold text-center text-gray-900 mb-2">
-            Upload Facility Data
+      <main className="flex-grow px-4 sm:px-6 mt-24 pb-12 pt-8 max-w-6xl mx-auto w-full">
+        {/* Page header — same as HTML */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+            <span className="font-bold">Data entry</span> — Upload QI data
           </h1>
-          <p className="text-gray-600 text-center mb-8">
-            Upload a CSV file from a healthcare facility. We&apos;ll analyze it with AI and save it to your history.
+          <p className="text-base text-gray-600">
+            Upload your quarterly CSV export from GPMS. All 14 quality indicators will be validated automatically.
           </p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-orange-400 transition cursor-pointer">
+        {/* Two columns: upload card | submission history */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
+          {/* LEFT: Quarterly CSV upload */}
+          <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Quarterly CSV upload</h2>
+              <p className="text-sm text-gray-500">Accepted format: GPMS export or the QI Platform template — .csv files only</p>
+            </div>
+
+            {/* Drop zone */}
+            <div
+              className={`mx-5 mt-5 border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition bg-gray-50 ${
+                dragOver ? "border-primary bg-orange-50" : file ? "border-primary border-solid bg-orange-50/50" : "border-gray-300 hover:border-orange-400"
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById("file-input")?.click()}
+            >
               <input
-                id="file-upload"
+                id="file-input"
                 type="file"
                 accept=".csv"
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-12 w-12 text-gray-400 mb-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6H16a5 5 0 011 9.9m-5 3.1v-8m0 0l-3 3m3-3l3 3"
-                  />
+              <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mx-auto mb-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-primary">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                <span className="text-gray-700 font-medium">
-                  {file ? file.name : "Click or drag a CSV file to upload"}
-                </span>
-                <span className="text-gray-500 text-sm mt-1">
-                  (Only .csv, max {MAX_SIZE_MB} MB)
-                </span>
-              </label>
+              </div>
+              <div className="text-base font-semibold text-gray-900 mb-1">Drag and drop your CSV here</div>
+              <div className="text-sm text-gray-500 mb-4 leading-relaxed">or click to browse your files.<br />One file per quarterly submission.</div>
+              <button
+                type="button"
+                className="bg-primary text-white text-sm font-semibold py-2.5 px-5 rounded-lg hover:bg-orange-600 transition"
+                onClick={(e) => { e.stopPropagation(); document.getElementById("file-input")?.click(); }}
+              >
+                Browse files
+              </button>
+              <div className="text-sm text-gray-500 mt-3">Supported: .csv · Max size: {MAX_SIZE_MB} MB</div>
             </div>
 
+            {/* File selected */}
+            {file && (
+              <div className="mx-5 mt-4 flex items-center gap-3 bg-orange-50/70 border border-orange-200 rounded-lg px-4 py-3">
+                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-primary">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-semibold text-gray-900 truncate">{file.name}</div>
+                  <div className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB · CSV file</div>
+                </div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); removeFile(); }} className="text-gray-400 hover:text-red-500 text-lg leading-none p-1" title="Remove file">
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* Error */}
             {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+              <div className="mx-5 mt-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
                 {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={uploading || !file}
-              className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploading ? "Analyzing…" : "Upload & Analyze"}
-            </button>
-          </form>
+            {/* Success */}
+            {result && (
+              <div className="mx-5 mt-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 shrink-0">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span className="text-base font-medium text-green-800 flex-1">
+                  {result.saved ? "CSV uploaded and validated successfully." : "Analysis complete. " + (result.filename || "")}
+                </span>
+                {result.saved && (
+                  <Link to="/dashboard-csv" className="text-base font-medium text-primary hover:underline whitespace-nowrap">
+                    View Dashboard →
+                  </Link>
+                )}
+              </div>
+            )}
 
-          {result && (
-            <div className="mt-8 rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm">
-              <h3 className="font-semibold text-gray-800 mb-3">Analysis result</h3>
-              <p className="text-gray-600 mb-2">
-                <strong>{result.filename}</strong>
-                {result.saved === true
-                  ? " — saved. View it in Dashboard-CSV or Uploaded History."
-                  : " — analysis complete but not saved to history (DynamoDB table may be missing). It won’t appear in Uploaded History or Dashboard-CSV until you create the table and upload again."}
-              </p>
-              {result.analysis?.summary && (
-                <p className="text-gray-700 mb-2">{result.analysis.summary}</p>
-              )}
-              {result.analysis?.keyMetrics && Object.keys(result.analysis.keyMetrics).length > 0 && (
-                <div className="mt-2">
-                  <h4 className="font-medium text-gray-700 mb-1">Key metrics</h4>
-                  <ul className="list-disc list-inside text-gray-600">
-                    {Object.entries(result.analysis.keyMetrics).map(([k, v]) => (
-                      <li key={k}>{k}: {String(v)}</li>
+            {/* Submit row — single button, no Clear */}
+            <div className="mx-5 mt-5 mb-5">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={uploading || !file}
+                className="w-full bg-primary text-white py-2.5 rounded-md font-medium text-base hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? "Processing…" : "Process & Validate CSV"}
+              </button>
+            </div>
+          </div>
+
+          {/* RIGHT: Submission history */}
+          <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                <polyline points="12 8 12 12 14 14" />
+                <path d="M3.05 11a9 9 0 1 1 .5 4" />
+                <polyline points="3 16 3 11 8 11" />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-900">Submission history</h3>
+            </div>
+            <div className="p-4">
+              {history.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4">No submissions yet. Upload a CSV above.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-sm font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                      <th className="pb-2 pr-2">File</th>
+                      <th className="pb-2 pr-2">Date</th>
+                      <th className="pb-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((item) => (
+                      <tr key={item.uploadId} className="border-b border-gray-100 last:border-0">
+                        <td className="py-2.5 pr-2 text-gray-900 font-medium truncate max-w-[140px]" title={item.filename}>
+                          {item.filename || "—"}
+                        </td>
+                        <td className="py-2.5 pr-2 text-gray-500 whitespace-nowrap">{formatUploadDate(item.uploadedAt)}</td>
+                        <td className="py-2.5">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                            Submitted
+                          </span>
+                        </td>
+                      </tr>
                     ))}
-                  </ul>
-                </div>
+                  </tbody>
+                </table>
               )}
             </div>
-          )}
-
-          <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-5 text-sm text-gray-700">
-            <h3 className="font-semibold mb-2">Guidelines</h3>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Use a .CSV file with clear column headers.</li>
-              <li>Data should describe facility metrics (e.g. admissions, length of stay, readmissions).</li>
-              <li>For Care Journey Flow: include resident_id, dates (admission, assessment, treatment, review, discharge), risk.</li>
-              <li>Maximum file size: {MAX_SIZE_MB} MB.</li>
-            </ul>
           </div>
         </div>
       </main>

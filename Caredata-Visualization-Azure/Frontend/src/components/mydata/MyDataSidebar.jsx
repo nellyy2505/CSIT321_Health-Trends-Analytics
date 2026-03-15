@@ -31,7 +31,7 @@ export default function MyDataSidebar({ activePage = "Dashboard" }) {
           </li>
 
           <li
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/health-dashboard")}
             className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
               ${
                 activePage === "Dashboard"

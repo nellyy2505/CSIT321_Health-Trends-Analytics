@@ -2,6 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getCurrentUser } from "../../services/api";
 
+const NAV_ITEMS = [
+  { name: "Dashboard", path: "/dashboard" },
+  { name: "Data entry", path: "/upload-csv" },
+  { name: "Reports", path: "/reports" },
+  { name: "Benchmarking", path: "/benchmarking" },
+  { name: "Settings", path: "/settings" },
+];
+
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -54,70 +62,64 @@ export default function Navbar() {
     window.location.href = "/";
   };
 
-  const navItems = user
-    ? [
-        { name: "Home", path: "/" },
-        { name: "Upload Data", path: "/upload-csv" },
-        { name: "Health Scan", path: "/health-scan" },
-        { name: "My Data", path: "/mydata" },
-      ]
-    : [
-        { name: "Home", path: "/" },
-        { name: "Upload Data", path: "/upload-csv" },
-        { name: "Health Scan", path: "/health-scan" },
-      ];
+  const isActive = (path) => {
+    if (path === "/dashboard") return location.pathname === "/dashboard";
+    if (path === "/upload-csv") return location.pathname.startsWith("/upload-csv");
+    if (path === "/reports") return location.pathname.startsWith("/reports");
+    if (path === "/benchmarking") return location.pathname.startsWith("/benchmarking");
+    if (path === "/settings") return location.pathname.startsWith("/settings");
+    return location.pathname === path;
+  };
 
   return (
     <nav className="bg-dark fixed top-0 left-0 w-full z-50 text-white">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
-        <div className="flex flex-col items-center gap-1">
-          <img src="/favicon.ico" alt="CareData Logo" className="w-10 h-10" />
-          <span className="text-lg sm:text-lg font-bold text-white leading-none">
-            CareData Portal
-          </span>
-        </div>
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3 min-h-[72px]">
+        <Link to="/" className="flex flex-col items-center gap-0.5 shrink-0 hover:opacity-90 transition">
+          <img src="/favicon.ico" alt="CareData Logo" className="w-10 h-10 block" />
+          <span className="text-lg font-bold text-white leading-tight whitespace-nowrap">CareData Portal</span>
+        </Link>
 
         <button
-          className="sm:hidden text-white focus:outline-none"
+          type="button"
+          className="sm:hidden text-white focus:outline-none p-2 shrink-0"
           onClick={() => setIsOpen(!isOpen)}
+          aria-label="Menu"
         >
           {isOpen ? "✕" : "☰"}
         </button>
 
-        <div className="hidden sm:flex items-center justify-between w-full max-w-[800px] ml-10">
-          <div className="flex items-center gap-4">
-            {navItems.map((item) => {
-              const isActive =
-                location.pathname === item.path ||
-                (location.pathname.startsWith("/domain") && item.path === "/mydata") ||
-                (location.pathname.startsWith("/mydata") && item.path === "/mydata") ||
-                (location.pathname.startsWith("/setting") && item.path === "/mydata") ||
-                (location.pathname.startsWith("/documentation") && item.path === "/mydata");
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`px-4 py-2 rounded-lg text-base font-medium transition-all ${
-                    isActive
-                      ? "bg-primary text-black shadow-md"
-                      : "text-gray-300 hover:text-primary hover:bg-grayish"
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              );
-            })}
+        <div className={`${isOpen ? "flex" : "hidden"} sm:flex flex-col sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between w-full sm:max-w-[800px] sm:ml-10 gap-2 sm:gap-3`}>
+          <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:gap-2 sm:mr-20">
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsOpen(false)}
+                className={`px-4 py-2 rounded-lg text-base font-medium transition-all whitespace-nowrap shrink-0 ${
+                  isActive(item.path)
+                    ? "bg-primary text-black shadow-md"
+                    : "text-gray-300 hover:text-primary hover:bg-grayish"
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
           </div>
-
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center gap-2 sm:gap-4">
+            <Link
+              to="/upload-csv"
+              onClick={() => setIsOpen(false)}
+              className="px-6 py-3 rounded-lg text-base font-bold text-center bg-orange-400 text-gray-900 hover:bg-orange-300 transition shadow-sm whitespace-nowrap shrink-0 border border-orange-300"
+            >
+              + Upload CSV
+            </Link>
             {user ? (
               <>
-                <span className="font-medium text-gray-100">
-                  Hello, {user.firstName || "User"}
-                </span>
+                <span className="font-medium text-gray-100 whitespace-nowrap shrink-0 sm:ml-2">Hello, {user.firstName || "User"}</span>
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="px-5 py-2.5 min-w-[120px] rounded-md bg-primary text-black hover:bg-orange-600 transition font-medium shadow-md"
+                  className="px-5 py-2.5 min-w-[120px] rounded-md bg-primary text-black hover:bg-orange-600 transition font-medium shadow-md whitespace-nowrap shrink-0 text-left sm:text-center"
                 >
                   Logout
                 </button>
@@ -125,11 +127,8 @@ export default function Navbar() {
             ) : (
               <Link
                 to="/login"
-                className={`px-6 py-2.5 min-w-[140px] text-center rounded-md font-semibold transition shadow-md ${
-                  location.pathname === "/login" || location.pathname === "/register"
-                    ? "bg-orange-600 text-black"
-                    : "bg-primary text-white hover:bg-orange-700"
-                }`}
+                onClick={() => setIsOpen(false)}
+                className="px-6 py-2.5 min-w-[140px] text-center rounded-md font-semibold transition shadow-md bg-primary text-white hover:bg-orange-600 whitespace-nowrap shrink-0"
               >
                 Sign In
               </Link>
@@ -137,54 +136,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-
-      {isOpen && (
-        <div className="sm:hidden bg-dark border-t border-gray-700 flex flex-col items-start p-4 space-y-2 text-white">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => setIsOpen(false)}
-              className={`block w-full text-left px-3 py-2 rounded-md font-medium ${
-                location.pathname === item.path
-                  ? "bg-primary text-black"
-                  : "text-gray-300 hover:text-primary hover:bg-grayish"
-              }`}
-            >
-              {item.name}
-            </Link>
-          ))}
-          <hr className="w-full border-gray-700 my-2" />
-          {user ? (
-            <>
-              <span className="px-3 text-gray-300 font-medium">
-                Hello {user.firstName} {user.lastName}
-              </span>
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setIsOpen(false);
-                }}
-                className="block w-full text-left px-3 py-2 rounded-md font-medium bg-primary text-black hover:bg-orange-600"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <Link
-              to="/login"
-              onClick={() => setIsOpen(false)}
-              className={`block w-full text-left px-3 py-2 rounded-md font-medium text-center ${
-                location.pathname === "/login" || location.pathname === "/register"
-                  ? "bg-primary text-black"
-                  : "bg-orange-600 text-white hover:bg-orange-700"
-              }`}
-            >
-              Login
-            </Link>
-          )}
-        </div>
-      )}
     </nav>
   );
 }

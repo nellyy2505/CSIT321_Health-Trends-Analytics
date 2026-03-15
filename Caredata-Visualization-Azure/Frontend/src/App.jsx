@@ -8,11 +8,15 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import UploadCSVPage from "./pages/UploadCSVPage";
 import MyDataPage from "./pages/MyDataPage";
+import QIDashboardPage from "./pages/QIDashboardPage";
+import ReportsPage from "./pages/ReportsPage";
+import BenchmarkingPage from "./pages/BenchmarkingPage";
 import DomainDetailsPage from "./components/mydata/DomainDetailsPage";
 import SettingPage from "./components/mydata/SettingPage";
 import DocumentationPage from "./components/mydata/DocumentationPage";
 import Dashboard from "./components/mydata/Dashboard";
 import DashboardCSV from "./components/mydata/DashboardCSV";
+import CSVVisualizationPage from "./components/mydata/CSVVisualizationPage";
 import UploadedHistoryPage from "./components/mydata/UploadedHistoryPage";
 import PrivacyPage from "./components/footerPages/PrivacyPage";
 import TermsPage from "./components/footerPages/TermsPage";
@@ -98,8 +102,9 @@ export default function App() {
           }
         />
 
+        <Route path="/dashboard" element={<QIDashboardPage />} />
         <Route
-          path="/dashboard"
+          path="/health-dashboard"
           element={
             <RequireAuth>
               <Dashboard />
@@ -112,6 +117,14 @@ export default function App() {
           element={
             <RequireAuth>
               <DashboardCSV />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard-csv/visualize/:uploadId"
+          element={
+            <RequireAuth>
+              <CSVVisualizationPage />
             </RequireAuth>
           }
         />
@@ -133,6 +146,8 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/benchmarking" element={<BenchmarkingPage />} />
 
         <Route
           path="/documentation"

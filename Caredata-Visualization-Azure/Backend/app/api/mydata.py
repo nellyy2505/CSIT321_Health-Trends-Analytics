@@ -61,17 +61,23 @@ class SettingsBody(BaseModel):
     facilityName: str = ""
     facilityType: str = ""
     facilityRegistration: str = ""
+    napsProviderId: str = ""
     abn: str = ""
     street: str = ""
     suburb: str = ""
     state: str = ""
     postcode: str = ""
+    address: str = ""
     bedCapacity: str = ""
     contactEmail: str = ""
     contactPhone: str = ""
     emergencyContact: str = ""
     delegatedContact: str = ""
     afterHoursContact: str = ""
+    qualityManagerName: str = ""
+    qualityManagerRole: str = ""
+    qualityManagerEmail: str = ""
+    qualityManagerPhone: str = ""
 
 
 @router.get("/settings")

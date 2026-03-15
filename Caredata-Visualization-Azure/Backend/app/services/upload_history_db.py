@@ -61,12 +61,15 @@ def get_upload(sub: str, upload_id: str) -> dict | None:
     if table:
         try:
             e = table.get_entity(partition_key=sub, row_key=upload_id)
-            return {
+            out = {
                 "uploadId": e.get("upload_id"),
                 "filename": e.get("filename") or "",
                 "uploadedAt": e.get("uploaded_at"),
                 "analysis": e.get("analysis") or "",
             }
+            if e.get("csv_content") is not None:
+                out["csv_content"] = e.get("csv_content")
+            return out
         except Exception:
             return None
     for u in _in_memory_uploads.get(sub, []):
@@ -75,33 +78,44 @@ def get_upload(sub: str, upload_id: str) -> dict | None:
     return None
 
 
-def put_upload(sub: str, filename: str, analysis: str) -> str:
-    """Save a new upload. Returns upload_id."""
+# Max CSV content to store (Azure Table property limit ~64KB)
+MAX_CSV_CONTENT_LEN = 60 * 1024
+
+
+def put_upload(sub: str, filename: str, analysis: str, csv_content: str | None = None) -> str:
+    """Save a new upload. Optionally store csv_content for download (truncated to MAX_CSV_CONTENT_LEN). Returns upload_id."""
     upload_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
+    stored_csv = (csv_content or "")[:MAX_CSV_CONTENT_LEN] if csv_content else None
     table = _get_table()
     if table:
         try:
-            table.upsert_entity({
+            entity = {
                 "PartitionKey": sub,
                 "RowKey": upload_id,
                 "upload_id": upload_id,
                 "filename": filename,
                 "uploaded_at": now,
                 "analysis": (analysis or "")[:50000],
-            })
+            }
+            if stored_csv is not None:
+                entity["csv_content"] = stored_csv
+            table.upsert_entity(entity)
             return upload_id
         except Exception as e:
             logger.warning("put_upload: %s", e)
             raise
     if sub not in _in_memory_uploads:
         _in_memory_uploads[sub] = []
-    _in_memory_uploads[sub].append({
+    rec = {
         "uploadId": upload_id,
         "filename": filename,
         "uploadedAt": now,
         "analysis": (analysis or "")[:50000],
-    })
+    }
+    if stored_csv is not None:
+        rec["csv_content"] = stored_csv
+    _in_memory_uploads[sub].append(rec)
     return upload_id
 
 
