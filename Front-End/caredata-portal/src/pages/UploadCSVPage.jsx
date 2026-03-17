@@ -1,21 +1,48 @@
 import { useState } from "react";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
+import { uploadAndAnalyzeCSV } from "../services/api";
+
+const MAX_SIZE_MB = 5;
+const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 export default function UploadCSVPage() {
   const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
 
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const f = e.target.files?.[0];
+    setFile(f || null);
+    setError("");
+    setResult(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (file) {
-      alert(`File uploaded: ${file.name}`);
-      // TODO: implement your actual upload logic (API call)
-    } else {
-      alert("Please select a CSV file first.");
+    if (!file) {
+      setError("Please select a CSV file first.");
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setError(`File must be under ${MAX_SIZE_MB} MB.`);
+      return;
+    }
+    setUploading(true);
+    setError("");
+    setResult(null);
+    try {
+      const data = await uploadAndAnalyzeCSV(file);
+      setResult(data);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const msg = detail != null
+        ? (Array.isArray(detail) ? detail.join(" ") : String(detail))
+        : (err.message || "Upload failed.");
+      setError(msg);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -26,15 +53,14 @@ export default function UploadCSVPage() {
       <main className="flex-grow flex items-center justify-center px-4 mt-24 pb-12 pt-12">
         <div className="bg-white w-full max-w-2xl rounded-2xl shadow p-8 border border-gray-200">
           <h1 className="text-3xl font-semibold text-center text-gray-900 mb-2">
-            Upload Your Data
+            Upload Facility Data
           </h1>
           <p className="text-gray-600 text-center mb-8">
-            Upload a CSV file to analyze and visualize your healthcare data.
+            Upload a CSV file from a healthcare facility. We&apos;ll analyze it with AI and save it to your history.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* File upload area */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition cursor-pointer">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-orange-400 transition cursor-pointer">
               <input
                 id="file-upload"
                 type="file"
@@ -61,28 +87,58 @@ export default function UploadCSVPage() {
                   {file ? file.name : "Click or drag a CSV file to upload"}
                 </span>
                 <span className="text-gray-500 text-sm mt-1">
-                  (Only .csv files are supported)
+                  (Only .csv, max {MAX_SIZE_MB} MB)
                 </span>
               </label>
             </div>
 
-            {/* Upload button */}
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-orange-600 transition"
+              disabled={uploading || !file}
+              className="w-full bg-primary text-white py-2.5 rounded-md font-medium hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Upload File
+              {uploading ? "Analyzing…" : "Upload & Analyze"}
             </button>
           </form>
 
-          {/* Tips */}
+          {result && (
+            <div className="mt-8 rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm">
+              <h3 className="font-semibold text-gray-800 mb-3">Analysis result</h3>
+              <p className="text-gray-600 mb-2">
+                <strong>{result.filename}</strong>
+                {result.saved === true
+                  ? " — saved. View it in Dashboard-CSV or Uploaded History."
+                  : " — analysis complete but not saved to history (DynamoDB table may be missing). It won’t appear in Uploaded History or Dashboard-CSV until you create the table and upload again."}
+              </p>
+              {result.analysis?.summary && (
+                <p className="text-gray-700 mb-2">{result.analysis.summary}</p>
+              )}
+              {result.analysis?.keyMetrics && Object.keys(result.analysis.keyMetrics).length > 0 && (
+                <div className="mt-2">
+                  <h4 className="font-medium text-gray-700 mb-1">Key metrics</h4>
+                  <ul className="list-disc list-inside text-gray-600">
+                    {Object.entries(result.analysis.keyMetrics).map(([k, v]) => (
+                      <li key={k}>{k}: {String(v)}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-5 text-sm text-gray-700">
-            <h3 className="font-semibold mb-2">Upload Guidelines:</h3>
+            <h3 className="font-semibold mb-2">Guidelines</h3>
             <ul className="list-disc list-inside space-y-1">
-              <li>Ensure your file is in .CSV format.</li>
-              <li>Each column should have a clear header.</li>
-              <li>Do not include empty rows or special characters.</li>
-              <li>Maximum file size: 5 MB.</li>
+              <li>Use a .CSV file with clear column headers.</li>
+              <li>Data should describe facility metrics (e.g. admissions, length of stay, readmissions).</li>
+              <li>For Care Journey Flow: include resident_id, dates (admission, assessment, treatment, review, discharge), risk.</li>
+              <li>Maximum file size: {MAX_SIZE_MB} MB.</li>
             </ul>
           </div>
         </div>

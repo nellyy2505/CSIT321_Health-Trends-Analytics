@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, Database, Settings, FileText } from "lucide-react";
+import { LayoutGrid, Database, Settings, FileText, GitBranch, BarChart3, History } from "lucide-react";
 
 export default function MyDataSidebar({ activePage = "Dashboard" }) {
   const navigate = useNavigate();
@@ -18,6 +18,19 @@ export default function MyDataSidebar({ activePage = "Dashboard" }) {
         </h2>
         <ul className="space-y-2">
           <li
+            onClick={() => navigate("/mydata")}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
+              ${
+                activePage === "My Data"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+          >
+            <Database size={16} />
+            My Data
+          </li>
+
+          <li
             onClick={() => navigate("/dashboard")}
             className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
               ${
@@ -31,16 +44,42 @@ export default function MyDataSidebar({ activePage = "Dashboard" }) {
           </li>
 
           <li
-            onClick={() => navigate("/mydata")}
+            onClick={() => navigate("/dashboard-csv")}
             className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
               ${
-                activePage === "My Data"
+                activePage === "Dashboard-CSV"
                   ? "bg-orange-500 text-white shadow-sm"
                   : "text-gray-700 hover:bg-gray-100"
               }`}
           >
-            <Database size={16} />
-            My Data
+            <BarChart3 size={16} />
+            Dashboard-CSV
+          </li>
+
+          <li
+            onClick={() => navigate("/careJourneyFlow")}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
+              ${
+                activePage === "Care Journey Flow"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+          >
+            <GitBranch size={16} />
+            Care Journey Flow
+          </li>
+
+          <li
+            onClick={() => navigate("/uploaded-history")}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
+              ${
+                activePage === "Uploaded History"
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+          >
+            <History size={16} />
+            Uploaded History
           </li>
         </ul>
 

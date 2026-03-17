@@ -1,51 +1,165 @@
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Hub } from "aws-amplify/utils";
 import { getCurrentUser } from "../../services/api";
+import { isCognitoEnabled } from "../../config/amplify";
+import { getCognitoIdToken, cognitoSignOut } from "../../services/cognitoAuth";
+
+// Helper to decode JWT token and extract user info (fallback if API fails)
+function decodeJWT(token) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function syncUserFromCognitoToken(setUser) {
+  const cognitoToken = await getCognitoIdToken();
+  if (!cognitoToken) return;
+  localStorage.setItem("token", cognitoToken);
+  try {
+    const data = await getCurrentUser(cognitoToken);
+    setUser({
+      firstName: data.first_name || "",
+      lastName: data.last_name || "",
+    });
+    localStorage.setItem("user", JSON.stringify(data));
+  } catch (e) {
+    // Fallback: extract user info from JWT token if API call fails
+    const payload = decodeJWT(cognitoToken);
+    if (payload) {
+      const userData = {
+        first_name: payload.given_name || payload.name?.split(" ")[0] || "User",
+        last_name: payload.family_name || payload.name?.split(" ").slice(1).join(" ") || "",
+        email: payload.email || "",
+        sub: payload.sub || "",
+      };
+      setUser({
+        firstName: userData.first_name,
+        lastName: userData.last_name,
+      });
+      localStorage.setItem("user", JSON.stringify(userData));
+    }
+  }
+}
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
+    const checkUser = () => {
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
 
-    // ✅ Instantly load user from localStorage (no delay)
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser({
-          firstName: parsedUser.first_name || parsedUser.firstName || "",
-          lastName: parsedUser.last_name || parsedUser.lastName || "",
-        });
-      } catch {
-        localStorage.removeItem("user");
+      if (savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser({
+            firstName: parsedUser.first_name || parsedUser.firstName || "",
+            lastName: parsedUser.last_name || parsedUser.lastName || "",
+          });
+          return;
+        } catch {
+          localStorage.removeItem("user");
+        }
       }
+
+      if (token && !savedUser) {
+        getCurrentUser(token)
+          .then((data) => {
+            setUser({ firstName: data.first_name, lastName: data.last_name });
+            localStorage.setItem("user", JSON.stringify(data));
+          })
+          .catch(() => {
+            localStorage.removeItem("token");
+            setUser(null);
+          });
+      } else if (isCognitoEnabled() && !savedUser) {
+        syncUserFromCognitoToken(setUser);
+      }
+    };
+
+    // Check immediately
+    checkUser();
+
+    // Check when location changes (after login redirect)
+    const isOAuthCallback = typeof window !== "undefined" && window.location.search.includes("code=");
+    if (isOAuthCallback) {
+      // For OAuth callbacks, check multiple times with delays
+      [300, 800, 1500, 2500].forEach((delay) => {
+        setTimeout(() => checkUser(), delay);
+      });
     }
 
-    // ✅ Only call API if token exists and user not already cached
-    if (token && !savedUser) {
-      getCurrentUser(token)
-        .then((data) => {
-          const formattedUser = {
-            firstName: data.first_name,
-            lastName: data.last_name,
-          };
-          setUser(formattedUser);
-          localStorage.setItem("user", JSON.stringify(data));
-        })
-        .catch(() => {
-          localStorage.removeItem("token");
-          setUser(null);
-        });
+    // Listen for auth events
+    let unsubscribe;
+    if (isCognitoEnabled()) {
+      unsubscribe = Hub.listen("auth", ({ payload }) => {
+        if (payload.event === "signInWithRedirect" || payload.event === "signedIn") {
+          setTimeout(() => checkUser(), 500);
+        }
+      });
     }
-  }, []);
 
-  const handleLogout = () => {
+    // Listen for storage changes (e.g., when login happens in another tab or after redirect)
+    const handleStorageChange = (e) => {
+      if (e.key === "token" || e.key === "user") {
+        checkUser();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    // Also check periodically for a short time after mount (helps with OAuth redirects)
+    const intervalId = setInterval(() => {
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+      if (token && !savedUser) {
+        checkUser();
+      }
+    }, 500);
+
+    // Clean up after 5 seconds
+    setTimeout(() => clearInterval(intervalId), 5000);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(intervalId);
+    };
+  }, [location.pathname]);
+
+  const handleLogout = async () => {
+    // Clear local state first to prevent any redirects from affecting the UI
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
+    
+    // Then try to sign out from Cognito (this might trigger OAuth redirect, but we've already cleared state)
+    if (isCognitoEnabled()) {
+      try {
+        // Use a timeout to prevent hanging if redirect happens
+        await Promise.race([
+          cognitoSignOut(),
+          new Promise((resolve) => setTimeout(resolve, 1000)), // Max 1 second wait
+        ]);
+      } catch (e) {
+        // Ignore OAuth redirect errors - state is already cleared
+      }
+    }
+    
+    navigate("/");
   };
 
   // ✅ Show "My Data" only when logged in
@@ -53,13 +167,13 @@ export default function Navbar() {
     ? [
         { name: "Home", path: "/" },
         { name: "Upload Data", path: "/upload-csv" },
-        { name: "Questionnaire", path: "/questionnaire" },
-        { name: "My Data", path: "/dashboard" },
+        { name: "Health Scan", path: "/health-scan" },
+        { name: "My Data", path: "/mydata" },
       ]
     : [
         { name: "Home", path: "/" },
         { name: "Upload Data", path: "/upload-csv" },
-        { name: "Questionnaire", path: "/questionnaire" },
+        { name: "Health Scan", path: "/health-scan" },
       ];
 
   return (
@@ -89,13 +203,13 @@ export default function Navbar() {
               const isActive =
                 location.pathname === item.path ||
                 (location.pathname.startsWith("/domain") &&
-                  item.path === "/dashboard") ||
+                  item.path === "/mydata") ||
                 (location.pathname.startsWith("/mydata") &&
-                  item.path === "/dashboard") ||
+                  item.path === "/mydata") ||
                 (location.pathname.startsWith("/setting") &&
-                  item.path === "/dashboard") ||
+                  item.path === "/mydata") ||
                 (location.pathname.startsWith("/documentation") &&
-                  item.path === "/dashboard");
+                  item.path === "/mydata");
               return (
                 <Link
                   key={item.path}
