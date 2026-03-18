@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, health_scan, mydata, upload_csv
+from app.api import auth, health_scan, mydata, upload_csv, qi, gpms
 
 app = FastAPI(title="CareData Backend (Azure)")
 
@@ -23,6 +23,8 @@ app.include_router(auth.router)
 app.include_router(health_scan.router)
 app.include_router(mydata.router)
 app.include_router(upload_csv.router)
+app.include_router(qi.router)
+app.include_router(gpms.router)
 
 
 @app.get("/")

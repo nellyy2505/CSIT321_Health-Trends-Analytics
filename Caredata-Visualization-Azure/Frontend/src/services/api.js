@@ -164,10 +164,6 @@ export const clearUploadHistory = async () => {
   return response.data;
 };
 
-export const getDashboardCSVData = async (uploadId) => {
-  const response = await api.post("/upload-csv/dashboard", { uploadId });
-  return response.data;
-};
 
 export const getHealthScanHistory = async () => {
   const response = await api.get("/health-scan/history");
@@ -181,6 +177,58 @@ export const deleteHealthScan = async (scanId) => {
 
 export const clearHealthScanHistory = async () => {
   const response = await api.delete("/health-scan/history");
+  return response.data;
+};
+
+// ─── QI Data API ────────────────────────────────────────────────────────────
+
+/** Fetch all QI aggregates (all dates) for trend charts. */
+export const getQIAggregates = async () => {
+  const response = await api.get("/api/qi/aggregates");
+  return response.data;
+};
+
+/** Fetch QI aggregate for a single assessment date. */
+export const getQIAggregateByDate = async (date) => {
+  const response = await api.get(`/api/qi/aggregates/${date}`);
+  return response.data;
+};
+
+/** Fetch resident-level assessment data for a specific date. */
+export const getQIResidents = async (date) => {
+  const response = await api.get(`/api/qi/residents`, { params: { date } });
+  return response.data;
+};
+
+/** Fetch a single resident's assessment history across all dates. */
+export const getResidentHistory = async (residentId) => {
+  const response = await api.get(`/api/qi/residents/${residentId}`);
+  return response.data;
+};
+
+// ─── GPMS API ───────────────────────────────────────────────────────────────
+
+/** List all GPMS submission dates (light — no form data). */
+export const getGPMSList = async () => {
+  const response = await api.get("/api/gpms");
+  return response.data;
+};
+
+/** Get full GPMS form data for a specific date. */
+export const getGPMSByDate = async (date) => {
+  const response = await api.get(`/api/gpms/${date}`);
+  return response.data;
+};
+
+/** Save GPMS form data for a specific date. */
+export const saveGPMS = async (date, formData, submitted = false) => {
+  const response = await api.put(`/api/gpms/${date}`, { formData, submitted });
+  return response.data;
+};
+
+/** Delete GPMS submission for a specific date. */
+export const deleteGPMS = async (date) => {
+  const response = await api.delete(`/api/gpms/${date}`);
   return response.data;
 };
 

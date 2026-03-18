@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { ArrowRightIcon } from "@heroicons/react/20/solid";
 
 export default function Hero() {
   const navigate = useNavigate();
@@ -13,101 +14,89 @@ export default function Hero() {
     return () => clearInterval(interval);
   }, [location.pathname]);
 
-  const scrollToFeatures = () => {
-    const el = document.getElementById("features");
-    el?.scrollIntoView({ behavior: "smooth" });
-  };
-
   return (
-    <section
-      className="relative flex items-start justify-center text-center text-white bg-black pt-20"
-      style={{ minHeight: "115vh", overflow: "visible", paddingBottom: "4rem" }}
-    >
-      <div className="absolute top-0 left-0 w-full h-40 bg-[#040404] z-10" />
-      <div className="absolute top-40 left-0 right-0 bottom-0 overflow-hidden">
-        <img src="/banner.png" alt="Care Data Banner" className="w-full h-full object-cover object-center" />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0) 70%, rgba(255,255,255,1) 100%)" }}
-        />
-        <motion.div
-          className="absolute bottom-1/4 right-1/3 w-[250px] h-[250px] bg-primary/25 rounded-full blur-3xl"
-          animate={{ y: [0, 25, 0], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
+    <section className="relative min-h-screen overflow-hidden bg-black">
 
-      <div className="relative z-20 px-6 max-w-3xl pb-16 pt-10">
+      {/* Black box to push image down — do not remove */}
+      <div className="absolute top-0 left-0 w-full h-[20px] bg-black z-[1]" />
+
+      {/* Full-bleed background image */}
+      <img
+        src="/banner.png"
+        alt=""
+        className="absolute top-[20px] left-0 w-full h-[calc(100%-20px)] object-cover object-top"
+      />
+
+      {/* Gradient overlay — solid black at top for text, fades to show image, then white */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `linear-gradient(to bottom,
+            #000 0%, #000 32%,
+            rgba(0,0,0,0.75) 45%,
+            rgba(0,0,0,0.3) 58%,
+            rgba(0,0,0,0) 68%,
+            rgba(255,255,255,0.85) 90%,
+            #fff 100%)`,
+        }}
+      />
+
+      {/* Content — positioned in the black zone */}
+      <div className="relative z-20 flex flex-col items-center text-center px-6 pt-[134px] pb-10">
+
+        {/* Eyebrow */}
         <motion.p
-          className="text-sm font-semibold text-primary uppercase tracking-widest mb-6"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="text-xs font-medium uppercase tracking-[0.2em] text-white mb-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
           Australian Residential Aged Care
         </motion.p>
+
+        {/* Horizontal line */}
+        <motion.div
+          className="w-12 border-t border-white/20 mb-8"
+          initial={{ opacity: 0, scaleX: 0 }}
+          animate={{ opacity: 1, scaleX: 1 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+        />
+
+        {/* Hook — bold, big, mixed color */}
         <motion.h1
-          className="text-5xl sm:text-6xl lg:text-7xl font-light text-white tracking-tight leading-tight mb-6"
-          initial={{ opacity: 0, y: 20 }}
+          className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-tight mb-6"
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          style={{ lineHeight: 1.35 }}
+          transition={{ duration: 0.5, delay: 0.06 }}
         >
-          <span className="block mb-2">Quality indicators,</span>
-          <strong className="font-semibold text-primary">visualised clearly</strong>
+          Insight at a <span className="text-primary">glance.</span>
         </motion.h1>
+
+        {/* Headline — regular weight */}
         <motion.p
-          className="text-lg sm:text-xl text-white mb-10 max-w-4xl mx-auto leading-relaxed"
-          initial={{ opacity: 0, y: 20 }}
+          className="text-base sm:text-lg font-normal text-white/50 max-w-md mb-8 leading-relaxed"
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.55, delay: 0.12 }}
         >
-          <span className="block">Upload your quarterly GPMS export and instantly see all 14 AIHW QI indicators, </span>
-          <span className="block">trends, benchmarks, and resident risk flags — in one place.</span>
+          Track your facility's quality indicators, all in one place.
         </motion.p>
 
+        {/* CTA */}
         <motion.div
-          className="flex flex-wrap justify-center gap-3 mb-10"
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: 0.55, delay: 0.22 }}
         >
-          {isLoggedIn ? (
-            <p className="text-orange-700 font-bold text-2xl sm:text-3xl">Welcome to CareData Portal</p>
-          ) : (
-            <>
-              <button
-                onClick={() => navigate("/login")}
-                className="bg-primary text-black px-7 py-3 text-base font-semibold rounded-lg hover:bg-orange-600 transition shadow-md"
-              >
-                Get started
-              </button>
-              <button
-                type="button"
-                onClick={scrollToFeatures}
-                className="bg-white/50 text-gray-900 border-2 border-primary px-7 py-3 text-base font-semibold rounded-lg hover:bg-white/70 transition shadow-md backdrop-blur-sm"
-              >
-                See features
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => navigate(isLoggedIn ? "/mydata" : "/login")}
+            className="inline-flex items-center gap-2 bg-primary text-white px-8 py-3 text-base font-semibold rounded-md hover:bg-orange-500 transition"
+          >
+            {isLoggedIn ? "Go to Dashboard" : "Get Started"}
+            <ArrowRightIcon className="w-4 h-4" />
+          </button>
         </motion.div>
 
-        <motion.div
-          className="flex flex-nowrap justify-center items-center gap-2 overflow-x-auto pb-1"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-        >
-          {["QI Program Manual 4.0", "14 indicators", "AIHW benchmarking", "GPMS compatible", "Australian aged care"].map((badge) => (
-            <span
-              key={badge}
-              className="text-xs font-semibold text-gray-900 bg-white/50 border border-orange-200 px-3 py-1.5 rounded-full whitespace-nowrap shrink-0 shadow-sm backdrop-blur-sm"
-            >
-              {badge}
-            </span>
-          ))}
-        </motion.div>
       </div>
     </section>
   );
