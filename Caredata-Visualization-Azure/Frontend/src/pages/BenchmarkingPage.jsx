@@ -1,27 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
+import { getQIAggregates } from "../services/api";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
-const Q = ["Q1 23", "Q2 23", "Q3 23", "Q4 23", "Q1 24", "Q2 24", "Q3 24", "Q4 24"];
-
-// From HTML: name, facility rate, national median, lowerIsBetter, unit
-const INDICATORS = [
-  { name: "Pressure injuries", fac: 12.4, nat: 10.2, lib: true, unit: "%" },
-  { name: "Falls & major injury", fac: 8.1, nat: 8.3, lib: true, unit: "%" },
-  { name: "Unplanned weight loss", fac: 4.2, nat: 5.1, lib: true, unit: "%" },
-  { name: "Medications (poly)", fac: 22.0, nat: 19.8, lib: true, unit: "%" },
-  { name: "ADL decline", fac: 18.3, nat: 20.1, lib: true, unit: "%" },
-  { name: "Incontinence (IAD)", fac: 6.7, nat: 6.9, lib: true, unit: "%" },
-  { name: "Restrictive practices", fac: 9.5, nat: 7.8, lib: true, unit: "%" },
-  { name: "Hospitalisation", fac: 11.2, nat: 11.0, lib: true, unit: "%" },
-  { name: "Allied health gap", fac: 31.3, nat: 34.0, lib: true, unit: "%" },
-  { name: "Consumer experience", fac: 78, nat: 75, lib: false, unit: "%" },
-  { name: "Quality of life", fac: 64, nat: 66, lib: false, unit: "%" },
-  { name: "Workforce adequacy", fac: 92, nat: 90, lib: false, unit: "%" },
-  { name: "Enrolled nursing", fac: 88, nat: 91, lib: false, unit: "%" },
-  { name: "Lifestyle sessions", fac: 2.4, nat: 2.1, lib: false, unit: "avg" },
+// AIHW published national medians — these don't change with uploads
+// id must match backend analysis indicator id
+const NATIONAL_MEDIANS = [
+  { id: "pi",              name: "Pressure injuries",     nat: 10.2, lib: true,  unit: "%",   convert: null },
+  { id: "falls",           name: "Falls & major injury",  nat: 8.3,  lib: true,  unit: "%",   convert: null },
+  { id: "uwl",             name: "Unplanned weight loss", nat: 5.1,  lib: true,  unit: "%",   convert: null },
+  { id: "meds",            name: "Medications (poly)",    nat: 19.8, lib: true,  unit: "%",   convert: null },
+  { id: "adl",             name: "ADL decline",           nat: 20.1, lib: true,  unit: "%",   convert: null },
+  { id: "incontinence",    name: "Incontinence (IAD)",    nat: 6.9,  lib: true,  unit: "%",   convert: null },
+  { id: "rp",              name: "Restrictive practices", nat: 7.8,  lib: true,  unit: "%",   convert: null },
+  { id: "hosp",            name: "Hospitalisation",       nat: 11.0, lib: true,  unit: "%",   convert: null },
+  { id: "allied_health",   name: "Allied health gap",     nat: 34.0, lib: true,  unit: "%",   convert: null },
+  { id: "consumer_exp",    name: "Consumer experience",   nat: 75,   lib: false, unit: "%",   convert: "score24_to_pct" },
+  { id: "qol",             name: "Quality of life",       nat: 66,   lib: false, unit: "%",   convert: "score24_to_pct" },
+  { id: "workforce",       name: "Workforce adequacy",    nat: 90,   lib: false, unit: "%",   convert: null },
+  { id: "enrolled_nursing", name: "Enrolled nursing",     nat: 91,   lib: false, unit: "%",   convert: null },
+  { id: "lifestyle",       name: "Lifestyle sessions",    nat: 2.1,  lib: false, unit: "avg", convert: null },
 ];
+
+
+function convertFacilityRate(indicator, natEntry) {
+  if (indicator.currentRate == null) return null;
+  const rate = indicator.currentRate;
+  // CE/QoL scores are 0-24 in new schema; convert to % for comparison with national median
+  if (natEntry.convert === "score24_to_pct" && indicator.valueDisplay?.includes("/24")) {
+    return Math.round((rate / 24) * 100 * 10) / 10;
+  }
+  return Math.round(rate * 10) / 10;
+}
+
+function buildIndicators(indicators) {
+  return NATIONAL_MEDIANS.map((natEntry) => {
+    const csvInd = indicators?.find((i) => i.id === natEntry.id);
+    let fac = null;
+    if (csvInd) {
+      fac = convertFacilityRate(csvInd, natEntry);
+    }
+    return { ...natEntry, fac: fac ?? 0, noFacData: fac == null };
+  });
+}
 
 function getStatus(ind) {
   const worse = ind.lib ? ind.fac > ind.nat : ind.fac < ind.nat;
@@ -38,23 +61,100 @@ function getPercentile(ind) {
   return diff > 0.1 ? { label: "25th", cls: "green" } : { label: "40th", cls: "green" };
 }
 
-const PERCENTILE_TREND_DATA = Q.map((q, i) => ({
-  name: q,
-  facility: [58, 56, 55, 54, 54, 53, 52, 52][i],
-  national: 50,
-}));
+function computeSummary(indicators) {
+  let above = 0, below = 0, atMedian = 0;
+  indicators.forEach((ind) => {
+    const s = getStatus(ind);
+    if (s === "red") above++;
+    else if (s === "green") below++;
+    else atMedian++;
+  });
+  const betterRatio = below / indicators.length;
+  const percentile = Math.round(50 - (betterRatio - 0.5) * 40);
+  return { above, below, atMedian, percentile: Math.max(1, Math.min(99, percentile)) };
+}
 
-const DIFF_DATA = INDICATORS.map((i) => {
-  const d = i.lib ? i.fac - i.nat : i.nat - i.fac;
-  return { name: i.name.length > 18 ? i.name.slice(0, 18) + "…" : i.name, diff: Math.round(d * 10) / 10 };
-});
+function buildDiffData(indicators) {
+  return indicators.map((i) => {
+    const d = i.lib ? i.fac - i.nat : i.nat - i.fac;
+    return { name: i.name.length > 18 ? i.name.slice(0, 18) + "\u2026" : i.name, diff: Math.round(d * 10) / 10 };
+  });
+}
+
+function buildPercentileTrend(aggregates, quarterLabels) {
+  if (!quarterLabels.length) return [];
+  // For each quarter, count how many indicators are worse than national
+  return quarterLabels.map((q, qi) => {
+    let aboveCount = 0;
+    // Find the aggregate for this quarter index
+    const agg = aggregates[qi];
+    const aggIndicators = agg?.indicators || [];
+    NATIONAL_MEDIANS.forEach((natEntry) => {
+      const csvInd = aggIndicators.find((a) => a.id === natEntry.id);
+      const rate = csvInd?.ratePerQuarter?.[qi] ?? csvInd?.currentRate;
+      if (rate == null) return;
+      let facRate = rate;
+      if (natEntry.convert === "score24_to_pct") facRate = (rate / 24) * 100;
+      const worse = natEntry.lib ? facRate > natEntry.nat : facRate < natEntry.nat;
+      if (worse) aboveCount++;
+    });
+    const ratio = aboveCount / NATIONAL_MEDIANS.length;
+    return { name: q, facility: Math.round(50 + ratio * 30), national: 50 };
+  });
+}
 
 export default function BenchmarkingPage() {
-  const [quarter, setQuarter] = useState("Q3 2024");
   const [peerGroup, setPeerGroup] = useState("All facilities");
   const [sizeFilter, setSizeFilter] = useState("All sizes");
+  const [loading, setLoading] = useState(true);
+  const [aggregates, setAggregates] = useState([]);
+  const [quarterLabels, setQuarterLabels] = useState([]);
+  const [quarterIndex, setQuarterIndex] = useState(0);
+  const [latestIndicators, setLatestIndicators] = useState([]);
 
-  const maxVal = Math.max(...INDICATORS.map((i) => Math.max(i.fac, i.nat)), 1);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await getQIAggregates();
+        if (cancelled) return;
+        const aggs = resp?.aggregates || [];
+        const labels = resp?.quarterLabels || [];
+        setAggregates(aggs);
+        setQuarterLabels(labels);
+        if (aggs.length) {
+          setQuarterIndex(aggs.length - 1);
+          // Use the latest aggregate's indicators
+          setLatestIndicators(aggs[aggs.length - 1]?.indicators || []);
+        }
+      } catch (err) {
+        console.warn("Benchmarking: failed to load QI aggregates", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // When quarter index changes, update the indicators to match that quarter
+  useEffect(() => {
+    if (!aggregates.length) return;
+    const agg = aggregates[Math.min(quarterIndex, aggregates.length - 1)];
+    if (agg?.indicators) {
+      setLatestIndicators(agg.indicators);
+    }
+  }, [quarterIndex, aggregates]);
+
+  const hasRealData = latestIndicators.length > 0;
+  const indicators = buildIndicators(hasRealData ? latestIndicators : null);
+  const currentQuarterLabel = quarterLabels.length > 0 ? quarterLabels[Math.min(quarterIndex, quarterLabels.length - 1)] : "\u2014";
+  const summary = computeSummary(indicators);
+  const diffData = buildDiffData(indicators);
+  const percentileTrend = hasRealData
+    ? buildPercentileTrend(aggregates, quarterLabels)
+    : [];
+
+  const maxVal = Math.max(...indicators.map((i) => Math.max(i.fac, i.nat)), 1);
   const scale = 100 / (maxVal * 1.1);
 
   return (
@@ -62,18 +162,33 @@ export default function BenchmarkingPage() {
       <Navbar />
 
       <main className="flex-grow pt-32 pb-12 px-4 sm:px-6 lg:px-8 max-w-[1280px] mx-auto w-full">
-        {/* Page header — same as Reports */}
+        {/* Page header */}
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-semibold text-gray-900 mb-1">
-              <span className="font-bold">Benchmarking</span> — Sunrise Aged Care vs national
+              <span className="font-bold">Benchmarking</span> — Facility vs national
             </h1>
             <p className="text-base text-gray-500">
-              Facility rates compared against AIHW published national medians · Q3 2024
+              Facility rates compared against AIHW published national medians{currentQuarterLabel !== "\u2014" ? ` \u00b7 ${currentQuarterLabel}` : ""}
             </p>
           </div>
           <div className="text-sm text-gray-400">Source: AIHW QI Program Report 2024</div>
         </div>
+
+        {/* Empty state */}
+        {!loading && !hasRealData && (
+          <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+            No QI data uploaded yet. <Link to="/upload-csv" className="text-primary font-medium hover:underline">Upload a CSV</Link> to see your facility's benchmarking data against national medians.
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-12 text-gray-400">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+            <p className="text-sm">Loading benchmarking data...</p>
+          </div>
+        )}
 
         {/* Filter row */}
         <div className="flex flex-wrap items-center gap-2 py-4 border-b border-gray-200">
@@ -94,7 +209,7 @@ export default function BenchmarkingPage() {
           ))}
           <span className="w-px h-5 bg-gray-200 mx-2" />
           <span className="text-sm text-gray-500 mr-1">Size:</span>
-          {["All sizes", "< 60 beds", "60–120 beds", "> 120 beds"].map((opt) => (
+          {["All sizes", "< 60 beds", "60\u2013120 beds", "> 120 beds"].map((opt) => (
             <button
               key={opt}
               type="button"
@@ -108,38 +223,44 @@ export default function BenchmarkingPage() {
               {opt}
             </button>
           ))}
-          <select
-            value={quarter}
-            onChange={(e) => setQuarter(e.target.value)}
-            className="ml-auto text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5"
-          >
-            <option>Q3 2024</option>
-            <option>Q2 2024</option>
-            <option>Q1 2024</option>
-            <option>Q4 2023</option>
-          </select>
+          {quarterLabels.length > 0 && (
+            <div className="ml-auto flex items-center gap-2">
+              <button type="button" className="w-8 h-8 rounded-lg border border-gray-300 bg-white text-gray-600 flex items-center justify-center hover:bg-gray-100 transition disabled:opacity-50"
+                onClick={() => setQuarterIndex((i) => Math.max(0, i - 1))} disabled={quarterIndex <= 0}>{"\u2039"}</button>
+              <span className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 min-w-[100px] text-center">
+                {currentQuarterLabel}
+              </span>
+              <button type="button" className="w-8 h-8 rounded-lg border border-gray-300 bg-white text-gray-600 flex items-center justify-center hover:bg-gray-100 transition disabled:opacity-50"
+                onClick={() => setQuarterIndex((i) => Math.min(quarterLabels.length - 1, i + 1))} disabled={quarterIndex >= quarterLabels.length - 1}>{"\u203a"}</button>
+            </div>
+          )}
+          {quarterLabels.length === 0 && !loading && (
+            <span className="ml-auto text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-full px-3 py-1.5">
+              Sample data
+            </span>
+          )}
         </div>
 
-        {/* Summary strip — same card style as Reports */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {/* Summary strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 mt-6">
           <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Above national median</div>
-            <div className="text-2xl font-semibold text-red-600">5</div>
+            <div className="text-2xl font-semibold text-red-600">{summary.above}</div>
             <div className="text-sm text-gray-500 mt-1">of 14 indicators</div>
           </div>
           <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Below national median</div>
-            <div className="text-2xl font-semibold text-green-600">7</div>
+            <div className="text-2xl font-semibold text-green-600">{summary.below}</div>
             <div className="text-sm text-gray-500 mt-1">performing better</div>
           </div>
           <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">At national median</div>
-            <div className="text-2xl font-semibold text-amber-600">2</div>
-            <div className="text-sm text-gray-500 mt-1">within ±0.5%</div>
+            <div className="text-2xl font-semibold text-amber-600">{summary.atMedian}</div>
+            <div className="text-sm text-gray-500 mt-1">within {"\u00b1"}0.5%</div>
           </div>
           <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Facility percentile</div>
-            <div className="text-2xl font-semibold text-amber-600">52nd</div>
+            <div className="text-2xl font-semibold text-amber-600">{summary.percentile}nd</div>
             <div className="text-sm text-gray-500 mt-1">overall ranking</div>
           </div>
         </div>
@@ -182,7 +303,7 @@ export default function BenchmarkingPage() {
 
           {/* Indicator rows */}
           <div className="space-y-2 overflow-x-auto">
-            {INDICATORS.map((ind) => {
+            {indicators.map((ind) => {
               const status = getStatus(ind);
               const pct = getPercentile(ind);
               const facW = Math.min(100, (ind.fac * scale));
@@ -202,8 +323,8 @@ export default function BenchmarkingPage() {
                     <div className={`absolute inset-y-1 left-0 rounded opacity-90 transition-all ${barColor}`} style={{ width: `${facW}%` }} />
                     <div className="absolute top-0 w-0.5 h-5 bg-gray-500 opacity-40 rounded-full" style={{ left: `${medPos}%` }} />
                   </div>
-                  <div className={`text-sm font-medium text-right ${textColor}`}>
-                    {ind.fac}{ind.unit}
+                  <div className={`text-sm font-medium text-right ${ind.noFacData ? "text-gray-400" : textColor}`}>
+                    {ind.noFacData ? "—" : `${ind.fac}${ind.unit}`}
                   </div>
                   <div className="text-sm text-gray-500 text-right">{ind.nat}{ind.unit}</div>
                   <div className={`text-xs font-semibold text-right ${pctColor}`}>{pct.label}</div>
@@ -221,38 +342,47 @@ export default function BenchmarkingPage() {
             </svg>
             <span>
               National medians sourced from AIHW QI Program national report. Lower rates are better for most indicators. Consumer experience, Quality of life, Workforce and Enrolled nursing are scored higher = better.
+              {hasRealData ? " Facility rates computed from your uploaded QI data." : " Upload a CSV to see your facility rates compared against national medians."}
             </span>
           </div>
         </div>
 
-        {/* Bottom charts — same style as Reports/dashboard-csv */}
+        {/* Bottom charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
             <h3 className="text-base font-semibold text-gray-800 mb-1">Facility percentile trend</h3>
-            <p className="text-sm text-gray-500 mb-4">Overall ranking vs national peer group — 8 quarters</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={PERCENTILE_TREND_DATA} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                <YAxis domain={[30, 80]} tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="facility" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} name="Facility percentile" />
-                <Line type="monotone" dataKey="national" stroke="#9ca3af" strokeDasharray="4 4" strokeWidth={2} dot={false} name="National median (50th)" />
-              </LineChart>
-            </ResponsiveContainer>
+            <p className="text-sm text-gray-500 mb-4">
+              Overall ranking vs national peer group{quarterLabels.length > 0 ? ` — ${quarterLabels.length} quarters` : ""}
+            </p>
+            {percentileTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={percentileTrend} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <YAxis domain={[30, 80]} tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="facility" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} name="Facility percentile" />
+                  <Line type="monotone" dataKey="national" stroke="#9ca3af" strokeDasharray="4 4" strokeWidth={2} dot={false} name="National median (50th)" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">
+                Upload QI data to see percentile trend
+              </div>
+            )}
           </div>
           <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
             <h3 className="text-base font-semibold text-gray-800 mb-1">Above / below national by indicator</h3>
             <p className="text-sm text-gray-500 mb-4">Difference from national median — positive = worse than national</p>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={DIFF_DATA} margin={{ top: 5, right: 5, left: 5, bottom: 30 }}>
+              <BarChart data={diffData} margin={{ top: 5, right: 5, left: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={60} stroke="#9ca3af" />
                 <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
                 <Tooltip />
                 <Bar dataKey="diff" name="Diff from national (%)" radius={4}>
-                  {DIFF_DATA.map((entry, index) => (
+                  {diffData.map((entry, index) => (
                     <Cell key={index} fill={entry.diff > 0 ? "#dc2626" : "#16a34a"} />
                   ))}
                 </Bar>

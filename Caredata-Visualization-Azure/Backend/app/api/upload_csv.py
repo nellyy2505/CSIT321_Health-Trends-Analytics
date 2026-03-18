@@ -1,7 +1,7 @@
 """
-CSV Upload: accept facility CSV, analyze with ChatGPT, store in upload history.
+CSV Upload: accept facility CSV, compute QI dashboard (pure Python), store in
+upload history + assessment/aggregate/GPMS tables.
 Upload history: list, get one, delete one, clear all.
-Dashboard data: generate trend charts + AI recommendations from stored analysis.
 """
 import csv
 import io
@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.services.jwt_auth import get_current_user
 from app.services import upload_history_db
+from app.services import assessment_db, qi_aggregate_db, gpms_db
 
 router = APIRouter(prefix="/upload-csv", tags=["Upload CSV"])
 logger = logging.getLogger(__name__)
@@ -24,94 +25,35 @@ logger = logging.getLogger(__name__)
 MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB
 
 # QI Platform Dashboard Specification: extract CSV values so the dashboard can be drawn.
-CSV_ANALYSIS_PROMPT = """You are a QI (Quality Indicator) data analyst for Australian residential aged care. Analyze the CSV and return ONLY a valid JSON object (no markdown, no code block) that will drive the dashboard.
 
-CSV COLUMNS TO USE (match by name or meaning; names may vary in case/spacing):
-- facility_name → page title (e.g. "Sunrise Aged Care — Dashboard")
-- quarter_label → quarter selector (e.g. "Q3 2024"); list all unique quarters present (up to 8)
-- resident_id → count residents per quarter; identify residents at risk
-
-14 QI INDICATORS (use these column names or equivalents; rate = % of rows where column = 1 unless noted):
-1. Pressure injuries: PI_01 → rate = % where PI_01 = 1
-2. Falls & major injury: FALL_01, FALL_MAJ → rate = % where FALL_01 = 1
-3. Unplanned weight loss: UWL_SIG, UWL_CON → rate = % where UWL_SIG = 1
-4. Medications: MED_POLY, MED_AP → rate = % where MED_POLY = 1
-5. Activities of daily living: ADL_01 → rate = % where ADL_01 = 1
-6. Incontinence care: IC_IAD → rate = % where IC_IAD = 1
-7. Restrictive practices: RP_01 → rate = % where RP_01 = 1
-8. Hospitalisation: HOSP_ALL → rate = % where HOSP_ALL = 1
-9. Allied health: AH_GAP → rate = count where AH_GAP = 1 (gap count per quarter)
-10. Consumer experience: CONSUMER_SCORE → rate = average score across residents
-11. Quality of life: QOL_SCORE → rate = average score across residents
-12. Workforce: WORKFORCE_ADEQUATE → rate = % where WORKFORCE_ADEQUATE = 1
-13. Enrolled nursing: EN_DIRECT_CARE_PCT → rate = average % across residents
-14. Lifestyle officer: LIFESTYLE_SESSIONS → rate = average sessions per resident
-
-MISSING DATA RULES:
-- If a column is missing entirely → set "valueDisplay": "No data", "status": "grey", "ratePerQuarter": [], "trendArrow": null.
-- If column exists but all values are 0 → set valueDisplay to "0.0%", status to "green", ratePerQuarter with that 0.
-- If only 1 quarter of data → provide that one rate; sparkline will show single point; set trendArrow to null.
-
-TREND ARROW (compare ONLY current quarter rate vs previous quarter rate; two quarters at a time):
-- If |currentRate - previousRate| <= 0.5 (or 0.5%): set "trendArrow": "stable".
-- LOWER-IS-BETTER indicators (id order 1–9): pi, falls, uwl, meds, adl, incontinence, rp, hosp, allied_health. For these: currentRate > previousRate by >0.5% → "trendArrow": "up" (Worsening); currentRate < previousRate by >0.5% → "trendArrow": "down" (Improving).
-- HIGHER-IS-BETTER indicators (id order 10–14): consumer_exp, qol, workforce, enrolled_nursing, lifestyle. For these: currentRate > previousRate by >0.5% → "trendArrow": "down" (Improving); currentRate < previousRate by >0.5% → "trendArrow": "up" (Worsening).
-
-TRAFFIC LIGHT PILL (On track / Monitor / Above threshold) — absolute measure: compare current quarter rate to FIXED thresholds ONLY; has nothing to do with previous quarter.
-- For each indicator provide "thresholdAmber" and "thresholdRed" (numbers; use national/typical values if not in CSV, e.g. for % rates often ~5% amber, ~10% red).
-- LOWER-IS-BETTER (pi, falls, uwl, meds, adl, incontinence, rp, hosp, allied_health): if currentRate > thresholdRed → "status": "red" (Above threshold); if currentRate between thresholdAmber and thresholdRed → "status": "amber" (Monitor); if currentRate < thresholdAmber → "status": "green" (On track).
-- HIGHER-IS-BETTER (consumer_exp, qol, workforce, enrolled_nursing, lifestyle): if currentRate < thresholdRed → "status": "red" (Above threshold); if currentRate between thresholdRed and thresholdAmber → "status": "amber" (Monitor); if currentRate > thresholdAmber → "status": "green" (On track).
-- Missing or no data → "status": "grey".
-
-RESIDENTS AT RISK: A resident is "at risk" if flagged on 2+ indicators in the same quarter (e.g. PI_01=1 and FALL_01=1). Return the count and top resident_id list (anonymised labels like "Resident 004" if possible).
-
-Return this exact JSON structure (use null for missing; all arrays use numbers or null):
-
-- "summary": string, 1-3 sentences describing the facility data and time period.
-- "header": object with "facilityName" (string), "quarterLabels" (array of up to 8 quarter strings), "residentCountForLatestQuarter" (number).
-- "summaryStrip": object with "totalResidents" (number), "categoriesAtRiskCount" (number), "categoriesAtRiskOf" (14), "lastSubmissionDate" (string, e.g. "14 Oct 2024").
-- "indicators": array of exactly 14 objects, in this order: Pressure injuries ("pi"), Falls & major injury ("falls"), Unplanned weight loss ("uwl"), Medications ("meds"), Activities of daily living ("adl"), Incontinence care ("incontinence"), Restrictive practices ("rp"), Hospitalisation ("hosp"), Allied health ("allied_health"), Consumer experience ("consumer_exp"), Quality of life ("qol"), Workforce ("workforce"), Enrolled nursing ("enrolled_nursing"), Lifestyle officer ("lifestyle"). Each object: "id", "name", "csvColumns", "ratePerQuarter", "currentRate", "previousRate", "thresholdAmber", "thresholdRed", "status" ("green"|"amber"|"red"|"grey"), "trendArrow" ("up"|"down"|"stable"|null), "valueDisplay".
-- "residentsAtRisk": object with "count" (number), "residentIds" (array of strings).
-- "keyMetrics": {}.
-- "trends": [].
-
-Use English. Output only valid JSON, no markdown."""
-
-DASHBOARD_PROMPT = """You are a healthcare facility analyst. Based on the following facility data analysis, provide:
-
-1) Trend chart data: an array of 4-8 items, each with "name" (string) and "value" (number), suitable for bar/line/radar charts (e.g. patient volume, readmission rate, satisfaction score). Use the key "chartData".
-
-2) Recommendations:
-- "trendsComing": 2-4 sentences on trends to watch or emerging patterns.
-- "thingsToMonitor": 3-5 bullet points or short paragraphs on what to monitor and improve at this facility.
-
-Return ONLY a valid JSON object (no markdown) with keys: "chartData" (array of {name, value}), "trendsComing" (string), "thingsToMonitor" (string). Use English."""
-
-
-def _csv_to_text(content: bytes, max_rows: int = 20) -> str:
-    """Convert CSV bytes to text for the LLM. Default 20 rows; use max_rows for dashboard extraction."""
-    try:
-        text = content.decode("utf-8", errors="replace")
-        reader = csv.reader(io.StringIO(text))
-        rows = list(reader)[:max_rows]
-        return "\n".join(",".join(r) for r in rows)
-    except Exception:
-        return content.decode("utf-8", errors="replace")[:15000]
+# GPT prompts removed — dashboard is computed by pure Python _compute_dashboard_from_csv()
 
 
 def _extract_quarter_labels_from_csv(content: bytes) -> list[str]:
-    """Parse CSV and return ordered unique quarter labels (e.g. Q1 2024, Q2 2024). Uses same decode/column logic as _compute_dashboard_from_csv."""
+    """Parse CSV and return ordered unique quarter labels.
+    Supports three date column patterns (in priority order):
+      1. Assessment_Date (ISO YYYY-MM-DD) → converted to 'Q1 2024 (Mar)' style labels
+      2. quarter_label column (direct string like 'Q3 2024')
+      3. quarter + year columns combined
+    """
     try:
         text = content.decode("utf-8-sig", errors="replace")
         reader = csv.DictReader(io.StringIO(text))
         fieldnames = list(reader.fieldnames or [])
+        date_col = _find_col(fieldnames, "Assessment_Date")
         q_col = _find_col(fieldnames, "quarter_label")
         q_raw = _find_col(fieldnames, "quarter")
         y_raw = _find_col(fieldnames, "year")
         seen: set[str] = set()
         ordered: list[str] = []
         for row in reader:
-            label = (row.get(q_col, "") if q_col else "").strip()
+            label = ""
+            if date_col:
+                raw_date = (row.get(date_col) or "").strip()
+                if raw_date:
+                    label = _date_to_quarter_label(raw_date)
+            if not label and q_col:
+                label = (row.get(q_col, "") or "").strip()
             if not label and (q_raw or y_raw):
                 q = (row.get(q_raw, "") if q_raw else "").strip()
                 y = (row.get(y_raw, "") if y_raw else "").strip()
@@ -126,59 +68,46 @@ def _extract_quarter_labels_from_csv(content: bytes) -> list[str]:
         return []
 
 
-def _csv_to_text_balanced_by_quarter(content: bytes, quarter_labels: list[str], max_per_quarter: int = 50) -> str:
-    """Build CSV text with rows from each quarter so the AI sees all quarters. Header + up to max_per_quarter rows per quarter."""
+
+# ─── Date helper ─────────────────────────────────────────────────────────────
+
+def _date_to_quarter_label(date_str: str) -> str:
+    """Convert ISO date (YYYY-MM-DD) to quarter label like 'Q1 2024 (Mar)'."""
     try:
-        text = content.decode("utf-8", errors="replace")
-        reader = csv.DictReader(io.StringIO(text))
-        rows_by_quarter: dict[str, list[dict[str, str]]] = {q: [] for q in quarter_labels}
-        # Column name for quarter (quarter_label or quarter+year)
-        fieldnames = reader.fieldnames or []
-        for row in reader:
-            label = (row.get("quarter_label") or "").strip()
-            if not label and (row.get("quarter") or row.get("year")):
-                q = (row.get("quarter") or "").strip()
-                y = (row.get("year") or "").strip()
-                if q and y:
-                    label = f"{q} {y}"
-            if label in rows_by_quarter and len(rows_by_quarter[label]) < max_per_quarter:
-                rows_by_quarter[label].append(row)
-        # Build output: header + rows from each quarter in order (use csv.writer so commas in values are quoted)
-        out = io.StringIO()
-        writer = csv.writer(out)
-        writer.writerow(fieldnames)
-        for q in quarter_labels:
-            for r in rows_by_quarter.get(q, []):
-                writer.writerow([r.get(f, "") for f in fieldnames])
-        return out.getvalue()[:120000]
-    except Exception as e:
-        logger.warning("_csv_to_text_balanced_by_quarter failed: %s", e)
-        return _csv_to_text(content, max_rows=300)
-
-
-def _csv_to_text_for_dashboard(content: bytes, max_rows: int = 120) -> str:
-    """Legacy: first N rows. Prefer using quarter-aware balanced text when quarters are known."""
-    return _csv_to_text(content, max_rows=max_rows)
+        from datetime import date as _date
+        d = _date.fromisoformat(date_str.strip())
+        quarter = (d.month - 1) // 3 + 1
+        month_abbr = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.month - 1]
+        return f"Q{quarter} {d.year} ({month_abbr})"
+    except Exception:
+        return date_str.strip()
 
 
 # 14 QI cards: column, calculation, display, direction, thresholds (green/amber/red)
 # lower_is_better: green below amber_hi, amber between amber_hi and red_hi, red above red_hi
 # higher_is_better: green above amber_lo, amber between red_lo and amber_lo, red below red_lo
+# Supports new schema columns (Assessment_Date CSV) as well as legacy column names.
 _QI_CARDS = [
-    {"id": "pi", "name": "Pressure injuries", "col": "PI_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 6, "red_hi": 10},
-    {"id": "falls", "name": "Falls & major injury", "col": "FALL_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 8, "red_hi": 12},
-    {"id": "uwl", "name": "Unplanned weight loss", "col": "UWL_SIG", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 4, "red_hi": 8},
-    {"id": "meds", "name": "Medications", "col": "MED_POLY", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 15, "red_hi": 25},
-    {"id": "adl", "name": "Activities of daily living", "col": "ADL_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 15, "red_hi": 25},
-    {"id": "incontinence", "name": "Incontinence care", "col": "IC_IAD", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 4, "red_hi": 8},
-    {"id": "rp", "name": "Restrictive practices", "col": "RP_01", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 4, "red_hi": 8},
-    {"id": "hosp", "name": "Hospitalisation", "col": "HOSP_ALL", "calc": "pct_binary", "display": "pct", "lower": True, "amber_hi": 9, "red_hi": 14},
-    {"id": "allied_health", "name": "Allied health", "col": "AH_GAP", "calc": "count_binary", "display": "count", "lower": True, "amber_hi": 10, "red_hi": 20},
-    {"id": "consumer_exp", "name": "Consumer experience", "col": "CONSUMER_SCORE", "calc": "avg_float", "display": "pct", "lower": False, "red_lo": 60, "amber_lo": 75},
-    {"id": "qol", "name": "Quality of life", "col": "QOL_SCORE", "calc": "avg_float", "display": "pct", "lower": False, "red_lo": 55, "amber_lo": 70},
-    {"id": "workforce", "name": "Workforce", "col": "WORKFORCE_ADEQUATE", "calc": "pct_binary", "display": "pct", "lower": False, "red_lo": 80, "amber_lo": 90},
-    {"id": "enrolled_nursing", "name": "Enrolled nursing", "col": "EN_DIRECT_CARE_PCT", "calc": "avg_float", "display": "pct", "lower": False, "red_lo": 80, "amber_lo": 90},
-    {"id": "lifestyle", "name": "Lifestyle officer", "col": "LIFESTYLE_SESSIONS", "calc": "avg_int", "display": "decimal", "lower": False, "red_lo": 1.0, "amber_lo": 2.0},
+    {"id": "pi",             "name": "Pressure injuries",          "col": "PI_01",          "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 6,   "red_hi": 10},
+    {"id": "falls",          "name": "Falls & major injury",       "col": "FALL_01",        "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 8,   "red_hi": 12},
+    {"id": "uwl",            "name": "Unplanned weight loss",      "col": "UWL_SIG",        "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 4,   "red_hi": 8},
+    {"id": "meds",           "name": "Medications",                "col": "MED_POLY",       "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 15,  "red_hi": 25},
+    {"id": "adl",            "name": "Activities of daily living", "col": "ADL_01",         "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 15,  "red_hi": 25},
+    {"id": "incontinence",   "name": "Incontinence care",          "col": "IC_IAD",         "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 4,   "red_hi": 8},
+    {"id": "rp",             "name": "Restrictive practices",      "col": "RP_01",          "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 4,   "red_hi": 8},
+    {"id": "hosp",           "name": "Hospitalisation",            "col": "HOSP_ALL",       "calc": "pct_binary",  "display": "pct",     "lower": True,  "amber_hi": 9,   "red_hi": 14},
+    # AH gap: % recommended but NOT received (AH_REC_RECOMMENDED=1 AND AH_REC_RECEIVED=0)
+    # Fallback: AH_GAP binary column for legacy CSVs
+    {"id": "allied_health",  "name": "Allied health",              "col": "AH_REC_RECOMMENDED", "calc": "ah_gap",  "display": "pct",     "lower": True,  "amber_hi": 25,  "red_hi": 40, "col2": "AH_REC_RECEIVED", "col_legacy": "AH_GAP"},
+    # CE_01 and QOL_01: composite scores 0–24 (new schema). Legacy: CONSUMER_SCORE / QOL_SCORE as %.
+    {"id": "consumer_exp",   "name": "Consumer experience",        "col": "CE_01",          "calc": "avg_float",   "display": "score24", "lower": False, "red_lo": 12,    "amber_lo": 16, "col_legacy": "CONSUMER_SCORE", "legacy_display": "pct", "legacy_red_lo": 60, "legacy_amber_lo": 75},
+    {"id": "qol",            "name": "Quality of life",            "col": "QOL_01",         "calc": "avg_float",   "display": "score24", "lower": False, "red_lo": 12,    "amber_lo": 16, "col_legacy": "QOL_SCORE",      "legacy_display": "pct", "legacy_red_lo": 55, "legacy_amber_lo": 70},
+    # Workforce: WF_ADEQUATE binary (new) or WORKFORCE_ADEQUATE (legacy)
+    {"id": "workforce",      "name": "Workforce",                  "col": "WF_ADEQUATE",    "calc": "pct_binary",  "display": "pct",     "lower": False, "red_lo": 80,    "amber_lo": 90, "col_legacy": "WORKFORCE_ADEQUATE"},
+    # Enrolled nursing: EN_DIRECT_PCT float (new) or EN_DIRECT_CARE_PCT (legacy)
+    {"id": "enrolled_nursing","name": "Enrolled nursing",          "col": "EN_DIRECT_PCT",  "calc": "avg_float",   "display": "pct",     "lower": False, "red_lo": 80,    "amber_lo": 90, "col_legacy": "EN_DIRECT_CARE_PCT"},
+    # Lifestyle: LS_SESSIONS_QTR int (new) or LIFESTYLE_SESSIONS (legacy)
+    {"id": "lifestyle",      "name": "Lifestyle officer",          "col": "LS_SESSIONS_QTR","calc": "avg_int",     "display": "decimal", "lower": False, "red_lo": 1.0,   "amber_lo": 2.0,"col_legacy": "LIFESTYLE_SESSIONS"},
 ]
 
 
@@ -229,7 +158,9 @@ def _safe_int(row: dict, col: str) -> int:
 
 
 def _compute_dashboard_from_csv(content: bytes, quarter_labels: list[str], facility_name: str) -> dict[str, Any]:
-    """Compute 14 QI indicators from CSV using exact rules. Filter by quarter first; binary as number."""
+    """Compute 14 QI indicators from CSV using exact rules. Filter by period first; binary as number.
+    Supports Assessment_Date (YYYY-MM-DD), quarter_label, or quarter+year columns for period grouping.
+    """
     try:
         text = content.decode("utf-8-sig", errors="replace")  # utf-8-sig strips BOM so first column name is clean
         reader = csv.DictReader(io.StringIO(text))
@@ -239,13 +170,18 @@ def _compute_dashboard_from_csv(content: bytes, quarter_labels: list[str], facil
         logger.warning("_compute_dashboard_from_csv parse failed: %s", e)
         return _empty_dashboard(quarter_labels, facility_name)
 
+    date_col = _find_col(fieldnames, "Assessment_Date")
     q_col = _find_col(fieldnames, "quarter_label")
     q_raw = _find_col(fieldnames, "quarter")
     y_raw = _find_col(fieldnames, "year")
-    res_col = _find_col(fieldnames, "resident_id")
+    res_col = _find_col(fieldnames, "resident_id") or _find_col(fieldnames, "Resident_ID")
     fn_col = _find_col(fieldnames, "facility_name")
 
     def quarter_of(row: dict) -> str:
+        if date_col:
+            raw_date = (row.get(date_col) or "").strip()
+            if raw_date:
+                return _date_to_quarter_label(raw_date)
         if q_col and row.get(q_col, "").strip():
             return str(row.get(q_col, "")).strip()
         q = str(row.get(q_raw or "quarter", "")).strip()
@@ -270,7 +206,18 @@ def _compute_dashboard_from_csv(content: bytes, quarter_labels: list[str], facil
 
     indicators = []
     for card in _QI_CARDS:
+        # Resolve column: prefer new schema col, fall back to legacy
         col = _find_col(fieldnames, card["col"])
+        if not col and card.get("col_legacy"):
+            col = _find_col(fieldnames, card["col_legacy"])
+        # For ah_gap: also resolve col2 (AH_REC_RECEIVED) and legacy (AH_GAP)
+        col2 = _find_col(fieldnames, card["col2"]) if card.get("col2") else None
+        col_legacy = _find_col(fieldnames, card.get("col_legacy", "")) if card.get("col_legacy") else None
+        # Detect if CE/QOL is using legacy column (adjust thresholds/display)
+        using_legacy = col is None and col_legacy is not None
+        if using_legacy and card.get("col_legacy"):
+            col = col_legacy
+
         values_per_quarter: list[float | int] = []
         for q in quarter_labels:
             rq = rows_by_q.get(q, [])
@@ -283,10 +230,21 @@ def _compute_dashboard_from_csv(content: bytes, quarter_labels: list[str], facil
                     values_per_quarter.append(None)
                     continue
                 count = sum(_safe_binary(r, col) for r in rq)
-                pct = round(100.0 * count / n, 1)  # formula: (count of 1s / rows in quarter) * 100
+                pct = round(100.0 * count / n, 1)
                 values_per_quarter.append(pct)
                 if card["id"] == "falls":
                     logger.info("[Falls] quarter=%s n=%d count(FALL_01=1)=%d rate=%.1f%%", q, n, count, pct)
+            elif card["calc"] == "ah_gap":
+                # % recommended but NOT received
+                if col and col2:
+                    gap = sum(1 for r in rq if _safe_binary(r, col) == 1 and _safe_binary(r, col2) == 0)
+                    values_per_quarter.append(round(100.0 * gap / n, 1))
+                elif col_legacy:
+                    # Legacy: AH_GAP binary count → express as % of n
+                    count = sum(_safe_binary(r, col_legacy) for r in rq)
+                    values_per_quarter.append(round(100.0 * count / n, 1))
+                else:
+                    values_per_quarter.append(None)
             elif card["calc"] == "count_binary":
                 if not col:
                     values_per_quarter.append(None)
@@ -312,12 +270,15 @@ def _compute_dashboard_from_csv(content: bytes, quarter_labels: list[str], facil
         current_rate = values_per_quarter[-1] if values_per_quarter else None
         previous_rate = values_per_quarter[-2] if len(values_per_quarter) >= 2 else None
 
-        # valueDisplay
+        # valueDisplay — use legacy display if using legacy column
+        display_type = card.get("legacy_display", card["display"]) if using_legacy else card["display"]
         if current_rate is None:
             value_display = "N/A"
-        elif card["display"] == "pct":
+        elif display_type == "pct":
             value_display = f"{current_rate}%"
-        elif card["display"] == "count":
+        elif display_type == "score24":
+            value_display = f"{current_rate}/24"
+        elif display_type == "count":
             value_display = str(int(current_rate))
         else:
             value_display = f"{current_rate}"
@@ -416,6 +377,152 @@ def _compute_dashboard_from_csv(content: bytes, quarter_labels: list[str], facil
     }
 
 
+def _compute_gpms_fields(content: bytes) -> dict[str, dict[str, Any]]:
+    """Compute GPMS aggregate submission fields from resident-level CSV data.
+    Groups by Assessment_Date (raw ISO date) and returns {date: {field: value}}.
+    Fields match the GPMS form keys used in the frontend Manual Entry form.
+    """
+    try:
+        text = content.decode("utf-8-sig", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    except Exception as e:
+        logger.warning("_compute_gpms_fields parse failed: %s", e)
+        return {}
+
+    date_col = _find_col(fieldnames, "Assessment_Date")
+    if not date_col:
+        return {}
+
+    # Group rows by raw date
+    by_date: dict[str, list[dict]] = {}
+    for row in rows:
+        d = (row.get(date_col) or "").strip()
+        if d:
+            by_date.setdefault(d, []).append(row)
+
+    def _sum_bin(rq, col_name):
+        c = _find_col(fieldnames, col_name)
+        if not c:
+            return None
+        return sum(_safe_binary(r, c) for r in rq)
+
+    def _sum_ternary_eq(rq, col_name, target):
+        c = _find_col(fieldnames, col_name)
+        if not c:
+            return None
+        count = 0
+        for r in rq:
+            try:
+                v = int(float(str(r.get(c) or "0").strip() or "0"))
+                if v == target:
+                    count += 1
+            except (ValueError, TypeError):
+                pass
+        return count
+
+    def _score_band(rq, col_name, lo, hi):
+        c = _find_col(fieldnames, col_name)
+        if not c:
+            return None
+        count = 0
+        for r in rq:
+            try:
+                v = float(str(r.get(c) or "").strip() or "0")
+                if lo <= v <= hi:
+                    count += 1
+            except (ValueError, TypeError):
+                pass
+        return count
+
+    result = {}
+    for date_str, rq in sorted(by_date.items()):
+        n = len(rq)
+        entry = {}
+
+        # QI 1 — Pressure injuries
+        entry["pi_total"] = n
+        entry["pi_any"] = _sum_bin(rq, "PI_01")
+        entry["pi_s1"] = _sum_bin(rq, "PI_S1")
+        entry["pi_s2"] = _sum_bin(rq, "PI_S2")
+        entry["pi_s3"] = _sum_bin(rq, "PI_S3")
+        entry["pi_s4"] = _sum_bin(rq, "PI_S4")
+        entry["pi_unstage"] = _sum_bin(rq, "PI_US")
+        entry["pi_dti"] = _sum_bin(rq, "PI_DTI")
+
+        # QI 2 — Restrictive practices
+        entry["rp_total"] = n
+        entry["rp_any"] = _sum_bin(rq, "RP_01")
+
+        # QI 3 — Unplanned weight loss
+        entry["uwl_total_sig"] = n
+        entry["uwl_total_con"] = n
+        entry["uwl_sig"] = _sum_bin(rq, "UWL_SIG")
+        entry["uwl_con"] = _sum_bin(rq, "UWL_CON")
+
+        # QI 4 — Falls
+        entry["falls_total"] = n
+        entry["falls_any"] = _sum_bin(rq, "FALL_01")
+        entry["falls_major"] = _sum_bin(rq, "FALL_MAJ")
+
+        # QI 5 — Medications
+        entry["poly_total"] = n
+        entry["poly_count"] = _sum_bin(rq, "MED_POLY")
+        entry["ap_total"] = n
+        # AP: MED_AP ternary — 1=with dx, 2=without dx; any >0 is "received an antipsychotic"
+        ap_with = _sum_ternary_eq(rq, "MED_AP", 1)
+        ap_without = _sum_ternary_eq(rq, "MED_AP", 2)
+        entry["ap_any"] = (ap_with or 0) + (ap_without or 0) if ap_with is not None else None
+        entry["ap_with_dx"] = ap_with
+
+        # QI 6 — ADL
+        entry["adl_total"] = n
+        entry["adl_decline"] = _sum_bin(rq, "ADL_01")
+
+        # QI 7 — Incontinence
+        entry["ic_total"] = n
+        entry["ic_iad_any"] = _sum_bin(rq, "IC_IAD")
+        entry["ic_iad_1a"] = _sum_bin(rq, "IC_IAD_1A")
+        entry["ic_iad_1b"] = _sum_bin(rq, "IC_IAD_1B")
+        entry["ic_iad_2a"] = _sum_bin(rq, "IC_IAD_2A")
+        entry["ic_iad_2b"] = _sum_bin(rq, "IC_IAD_2B")
+
+        # QI 8 — Hospitalisation
+        entry["hosp_total"] = n
+        entry["hosp_ed"] = _sum_bin(rq, "HOSP_ED")
+        entry["hosp_all"] = _sum_bin(rq, "HOSP_ALL")
+
+        # QI 10 — Consumer experience (CE_01 is 0-24 score)
+        entry["cx_excellent"] = _score_band(rq, "CE_01", 22, 24)
+        entry["cx_good"] = _score_band(rq, "CE_01", 19, 21)
+        entry["cx_moderate"] = _score_band(rq, "CE_01", 14, 18)
+        entry["cx_poor"] = _score_band(rq, "CE_01", 8, 13)
+        entry["cx_very_poor"] = _score_band(rq, "CE_01", 0, 7)
+
+        # QI 11 — Quality of life (QOL_01 is 0-24 score)
+        entry["qol_excellent"] = _score_band(rq, "QOL_01", 22, 24)
+        entry["qol_good"] = _score_band(rq, "QOL_01", 19, 21)
+        entry["qol_moderate"] = _score_band(rq, "QOL_01", 14, 18)
+        entry["qol_poor"] = _score_band(rq, "QOL_01", 8, 13)
+        entry["qol_very_poor"] = _score_band(rq, "QOL_01", 0, 7)
+
+        # QI 13 — Allied health
+        entry["ah_total"] = n
+        entry["ah_rcv_physio"] = _sum_bin(rq, "AH_RCVD_PHYSIO")
+        entry["ah_rcv_ot"] = _sum_bin(rq, "AH_RCVD_OT")
+        entry["ah_rcv_speech"] = _sum_bin(rq, "AH_RCVD_SPEECH")
+        entry["ah_rcv_pod"] = _sum_bin(rq, "AH_RCVD_POD")
+        entry["ah_rcv_diet"] = _sum_bin(rq, "AH_RCVD_DIET")
+        entry["ah_rcv_assist"] = _sum_bin(rq, "AH_RCVD_ASSIST")
+        entry["ah_rcv_other"] = _sum_bin(rq, "AH_RCVD_OTHER")
+
+        # Strip None values
+        result[date_str] = {k: v for k, v in entry.items() if v is not None}
+
+    return result
+
+
 def _empty_dashboard(quarter_labels: list[str], facility_name: str) -> dict[str, Any]:
     """Return minimal dashboard when computation fails."""
     return {
@@ -432,24 +539,45 @@ def _empty_dashboard(quarter_labels: list[str], facility_name: str) -> dict[str,
     }
 
 
-def _call_chatgpt(system_prompt: str, user_content: str, max_tokens: int = 2000) -> dict[str, Any]:
-    if not settings.OPENAI_API_KEY:
-        raise HTTPException(status_code=503, detail="OpenAI API key not configured.")
-    from openai import OpenAI
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content},
-        ],
-        response_format={"type": "json_object"},
-        max_tokens=max_tokens,
-    )
-    raw = (resp.choices[0].message.content or "").strip()
-    if not raw:
+def _extract_rows_by_date(content: bytes) -> dict[str, list[dict]]:
+    """Parse CSV and return rows grouped by raw Assessment_Date (ISO YYYY-MM-DD).
+    Each row is a dict of fieldname->value from the CSV.
+    """
+    try:
+        text = content.decode("utf-8-sig", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        fieldnames = list(reader.fieldnames or [])
+        date_col = _find_col(fieldnames, "Assessment_Date")
+        if not date_col:
+            return {}
+        by_date: dict[str, list[dict]] = {}
+        for row in reader:
+            d = (row.get(date_col) or "").strip()
+            if d:
+                by_date.setdefault(d, []).append(dict(row))
+        return by_date
+    except Exception as e:
+        logger.warning("_extract_rows_by_date failed: %s", e)
         return {}
-    return json.loads(raw)
+
+
+def _date_to_label_map(content: bytes) -> dict[str, str]:
+    """Build a mapping from raw ISO date to quarter label (e.g., '2024-03-31' -> 'Q1 2024 (Mar)')."""
+    try:
+        text = content.decode("utf-8-sig", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        fieldnames = list(reader.fieldnames or [])
+        date_col = _find_col(fieldnames, "Assessment_Date")
+        if not date_col:
+            return {}
+        mapping: dict[str, str] = {}
+        for row in reader:
+            raw_date = (row.get(date_col) or "").strip()
+            if raw_date and raw_date not in mapping:
+                mapping[raw_date] = _date_to_quarter_label(raw_date)
+        return mapping
+    except Exception:
+        return {}
 
 
 @router.post("/analyze")
@@ -468,11 +596,13 @@ async def upload_and_analyze_csv(
     logger.info("[upload-csv] Step 2: Read file — size=%d bytes (%.2f KB)", len(content), len(content) / 1024)
     if len(content) > MAX_CSV_BYTES:
         raise HTTPException(status_code=400, detail="CSV must be under 5 MB.")
-    # Extract quarter labels from full CSV so we show all quarters (Q1–Q4) on dashboard
+    # Extract period labels from CSV (supports Assessment_Date ISO, quarter_label, or quarter+year columns)
     quarter_labels = _extract_quarter_labels_from_csv(content)
-    logger.info("[upload-csv] Step 2b: Quarters in CSV — %s", quarter_labels)
+    logger.info("[upload-csv] Step 2b: Period labels in CSV — %s", quarter_labels)
     if not quarter_labels:
-        raise HTTPException(status_code=400, detail="CSV has no quarter data (need quarter_label or quarter+year).")
+        # If no date/quarter column found, treat entire file as a single period
+        quarter_labels = ["Q1 2024"]
+        logger.info("[upload-csv] No date column found — treating as single period: %s", quarter_labels)
     # Compute 14 QI indicators from CSV using exact rules (no AI for numbers)
     try:
         analysis_obj = _compute_dashboard_from_csv(content, quarter_labels, "")
@@ -482,25 +612,161 @@ async def upload_and_analyze_csv(
         raise HTTPException(status_code=502, detail=f"Could not compute dashboard: {str(e)}") from e
     analysis_str = json.dumps(analysis_obj)
 
-    csv_content = content.decode("utf-8", errors="replace")
+    # Compute GPMS aggregate fields for Manual Entry pre-fill
+    gpms_fields = {}
+    try:
+        gpms_fields = _compute_gpms_fields(content)
+        logger.info("[upload-csv] Step 3b: GPMS fields computed — dates=%s", list(gpms_fields.keys()))
+    except Exception as e:
+        logger.warning("GPMS fields computation failed (non-fatal): %s", e)
+
+    # --- Store in uploadhistory (audit trail — metadata only) ---
+    rows_by_date = _extract_rows_by_date(content)
+    date_label_map = _date_to_label_map(content)
+    raw_dates = sorted(rows_by_date.keys())
+    total_rows = sum(len(v) for v in rows_by_date.values())
+
     upload_id = None
     try:
         upload_id = upload_history_db.put_upload(
-            sub, file.filename or "data.csv", analysis_str, csv_content=csv_content
+            sub, file.filename or "data.csv", analysis_str,
         )
-        logger.info("[upload-csv] Step 5: Saved to storage — uploadId=%s, analysisLen=%d", upload_id, len(analysis_str))
+        logger.info("[upload-csv] Step 4: Upload history saved — uploadId=%s", upload_id)
     except Exception as e:
-        logger.warning("Save upload failed (table may not exist): %s", e)
-        # Still return analysis so Upload Data works without the history table (e.g. local dev)
+        logger.warning("Save upload history failed: %s", e)
+
+    # --- Store resident-level assessments in assessments table ---
+    if upload_id and rows_by_date:
+        for iso_date, date_rows in rows_by_date.items():
+            try:
+                assessment_db.put_assessments(sub, iso_date, date_rows, upload_id)
+            except Exception as e:
+                logger.warning("put_assessments failed for date=%s: %s", iso_date, e)
+        logger.info("[upload-csv] Step 5: Assessments stored — dates=%d, totalRows=%d", len(raw_dates), total_rows)
+
+    # --- Store pre-computed QI aggregates (per-date snapshots) ---
+    if upload_id:
+        indicators = analysis_obj.get("indicators", [])
+        summary_strip = analysis_obj.get("summaryStrip", {})
+        residents_at_risk = analysis_obj.get("residentsAtRisk", {})
+        facility_name = analysis_obj.get("header", {}).get("facilityName", "")
+        for qi, iso_date in enumerate(raw_dates):
+            ql = date_label_map.get(iso_date, iso_date)
+            n_residents = len(rows_by_date.get(iso_date, []))
+            # Create per-date indicator snapshot: currentRate = this date's rate
+            date_indicators = []
+            for ind in indicators:
+                rpq = ind.get("ratePerQuarter", [])
+                date_rate = rpq[qi] if qi < len(rpq) else ind.get("currentRate")
+                prev_rate = rpq[qi - 1] if qi > 0 and qi - 1 < len(rpq) else None
+                # Recalculate trend for this specific date
+                date_trend = None
+                if date_rate is not None and prev_rate is not None:
+                    diff = (date_rate or 0) - (prev_rate or 0)
+                    card = next((c for c in _QI_CARDS if c["id"] == ind["id"]), None)
+                    if card:
+                        if abs(diff) <= 0.5:
+                            date_trend = "stable"
+                        elif card["lower"]:
+                            date_trend = "up" if diff > 0 else "down"
+                        else:
+                            date_trend = "down" if diff > 0 else "up"
+                # Recalculate status for this specific date
+                date_status = "grey"
+                if date_rate is not None:
+                    card = next((c for c in _QI_CARDS if c["id"] == ind["id"]), None)
+                    if card:
+                        if card["lower"]:
+                            if date_rate < card["amber_hi"]:
+                                date_status = "green"
+                            elif date_rate <= card["red_hi"]:
+                                date_status = "amber"
+                            else:
+                                date_status = "red"
+                        else:
+                            rlo = card.get("red_lo", 0)
+                            alo = card.get("amber_lo", 100)
+                            if date_rate >= alo:
+                                date_status = "green"
+                            elif date_rate >= rlo:
+                                date_status = "amber"
+                            else:
+                                date_status = "red"
+                # Build display value
+                date_display = ind.get("valueDisplay", "N/A")
+                if date_rate is not None:
+                    disp = ind.get("valueDisplay", "")
+                    if disp.endswith("%"):
+                        date_display = f"{date_rate}%"
+                    elif "/24" in disp:
+                        date_display = f"{date_rate}/24"
+                    else:
+                        date_display = str(date_rate)
+                date_indicators.append({
+                    **ind,
+                    "currentRate": date_rate,
+                    "previousRate": prev_rate,
+                    "status": date_status,
+                    "trendArrow": date_trend,
+                    "valueDisplay": date_display,
+                })
+            # Compute per-date summary
+            date_red_count = sum(1 for di in date_indicators if di.get("status") == "red")
+            date_summary = {
+                "totalResidents": n_residents,
+                "categoriesAtRiskCount": date_red_count,
+                "categoriesAtRiskOf": 14,
+                "lastSubmissionDate": ql,
+            }
+            try:
+                qi_aggregate_db.put_aggregate(
+                    sub=sub,
+                    assessment_date=iso_date,
+                    quarter_label=ql,
+                    total_residents=n_residents,
+                    indicators=date_indicators,
+                    summary_strip=date_summary,
+                    residents_at_risk=residents_at_risk if qi == len(raw_dates) - 1 else {"count": 0, "residentIds": []},
+                    upload_id=upload_id,
+                    facility_name=facility_name,
+                )
+            except Exception as e:
+                logger.warning("put_aggregate failed for date=%s: %s", iso_date, e)
+        logger.info("[upload-csv] Step 6: QI aggregates stored for %d dates", len(raw_dates))
+
+    # --- Store GPMS fields ---
+    if upload_id and gpms_fields:
+        for iso_date, fields in gpms_fields.items():
+            try:
+                gpms_db.put_gpms(sub, iso_date, fields, source="csv_upload", upload_id=upload_id)
+            except Exception as e:
+                logger.warning("put_gpms failed for date=%s: %s", iso_date, e)
+        logger.info("[upload-csv] Step 6b: GPMS fields stored for %d dates", len(gpms_fields))
 
     payload = {
         "uploadId": upload_id,
         "filename": file.filename or "data.csv",
         "analysis": analysis_obj,
         "saved": upload_id is not None,
+        "gpmsFields": gpms_fields,
     }
     logger.info("[upload-csv] Step 7: Sending response — uploadId=%s, filename=%s, saved=%s", upload_id, payload["filename"], payload["saved"])
     return payload
+
+
+@router.get("/gov-template", response_class=Response)
+def download_gov_template():
+    """Serve the official government QI data recording template (.xlsx)."""
+    import pathlib
+    template_path = pathlib.Path(__file__).resolve().parent.parent.parent / "synthesizeData" / "qi-program-data-recording-templates.xlsx"
+    if not template_path.exists():
+        raise HTTPException(status_code=404, detail="Government template file not found on server.")
+    content = template_path.read_bytes()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="qi-program-data-recording-templates.xlsx"'},
+    )
 
 
 @router.get("/history", response_model=list)
@@ -595,55 +861,3 @@ def clear_upload_history(current_user: dict = Depends(get_current_user)):
     return {"deleted": count}
 
 
-class DashboardRequest(BaseModel):
-    uploadId: str
-
-
-class DashboardResponse(BaseModel):
-    chartData: list[dict[str, Any]]
-    trendsComing: str
-    thingsToMonitor: str
-
-
-@router.post("/dashboard", response_model=DashboardResponse)
-def get_dashboard_data(
-    body: DashboardRequest,
-    current_user: dict = Depends(get_current_user),
-):
-    """Generate trend chart data and AI recommendations from a stored CSV upload."""
-    sub = current_user.get("sub")
-    if not sub:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    u = upload_history_db.get_upload(sub, body.uploadId)
-    if not u:
-        raise HTTPException(status_code=404, detail="Upload not found.")
-    analysis_str = u.get("analysis") or ""
-    if isinstance(analysis_str, dict):
-        analysis_str = json.dumps(analysis_str)
-    if not analysis_str.strip():
-        return DashboardResponse(chartData=[], trendsComing="", thingsToMonitor="No analysis available.")
-    try:
-        out = _call_chatgpt(DASHBOARD_PROMPT, f"Facility data analysis:\n\n{analysis_str}", max_tokens=1500)
-    except Exception as e:
-        logger.warning("Dashboard generation failed: %s", e)
-        raise HTTPException(status_code=502, detail=f"Could not generate dashboard: {str(e)}") from e
-    chart_data = out.get("chartData") or []
-    if not isinstance(chart_data, list):
-        chart_data = []
-    chart_data = [{"name": str(x.get("name", "")), "value": float(x.get("value", 0)) if x.get("value") is not None else 0} for x in chart_data]
-
-    def _to_str(v: Any) -> str:
-        """Normalize AI output: string as-is, list -> joined with newlines."""
-        if v is None:
-            return ""
-        if isinstance(v, str):
-            return v.strip()
-        if isinstance(v, list):
-            return "\n".join(str(x).strip() for x in v if x is not None and str(x).strip())
-        return str(v).strip()
-
-    return DashboardResponse(
-        chartData=chart_data,
-        trendsComing=_to_str(out.get("trendsComing")),
-        thingsToMonitor=_to_str(out.get("thingsToMonitor")),
-    )

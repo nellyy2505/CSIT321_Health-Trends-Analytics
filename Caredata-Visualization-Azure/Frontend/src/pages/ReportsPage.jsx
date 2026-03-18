@@ -2,458 +2,639 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  CartesianGrid,
-} from "recharts";
+import { getQIAggregates, getQIResidents } from "../services/api";
 
-const Q = ["Q1 23", "Q2 23", "Q3 23", "Q4 23", "Q1 24", "Q2 24", "Q3 24", "Q4 24"];
-const COLORS = { red: "#d85a30", amber: "#c27700", green: "#ff7b00", blue: "#378add", purple: "#534AB7" };
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 const SIDEBAR_ITEMS = [
-  { id: "pi", label: "Pressure injuries", dot: "#d85a30", count: "11" },
-  { id: "falls", label: "Falls & major injury", dot: "#ba7517", count: "7" },
-  { id: "uwl", label: "Unplanned weight loss", dot: "#1d9e75", count: "4" },
-  { id: "meds", label: "Medications", dot: "#ba7517", count: "19" },
-  { id: "adl", label: "Activities of daily living", dot: "#1d9e75", count: "16" },
-  { id: "ic", label: "Incontinence care", dot: "#1d9e75", count: "6" },
-  { id: "rp", label: "Restrictive practices", dot: "#d85a30", count: "8" },
-  { id: "hosp", label: "Hospitalisation", dot: "#ba7517", count: "10" },
-  { id: "ah", label: "Allied health", dot: "#1d9e75", count: "15" },
-  { id: "cx", label: "Consumer experience", dot: "#1d9e75", count: "87" },
-  { id: "qol", label: "Quality of life", dot: "#ba7517", count: "87" },
-  { id: "wf", label: "Workforce", dot: "#1d9e75", count: "—" },
-  { id: "en", label: "Enrolled nursing", dot: "#ba7517", count: "—" },
-  { id: "ls", label: "Lifestyle officer", dot: "#1d9e75", count: "—" },
+  { id:"pi",    label:"Pressure injuries",          dot:"#d85a30" },
+  { id:"falls", label:"Falls & major injury",       dot:"#ba7517" },
+  { id:"uwl",   label:"Unplanned weight loss",      dot:"#1d9e75" },
+  { id:"meds",  label:"Medications",                dot:"#ba7517" },
+  { id:"adl",   label:"Activities of daily living", dot:"#1d9e75" },
+  { id:"ic",    label:"Incontinence care",          dot:"#1d9e75" },
+  { id:"rp",    label:"Restrictive practices",      dot:"#d85a30" },
+  { id:"hosp",  label:"Hospitalisation",            dot:"#ba7517" },
+  { id:"ah",    label:"Allied health",              dot:"#1d9e75" },
+  { id:"cx",    label:"Consumer experience",        dot:"#1d9e75" },
+  { id:"qol",   label:"Quality of life",            dot:"#ba7517" },
+  { id:"wf",    label:"Workforce",                  dot:"#1d9e75" },
+  { id:"en",    label:"Enrolled nursing",           dot:"#ba7517" },
+  { id:"ls",    label:"Lifestyle officer",          dot:"#1d9e75" },
 ];
 
-const SECTIONS = [
+// ─── Section templates (metadata only — rows computed dynamically) ───────────
+
+const SECTION_TEMPLATES = [
   {
-    id: "pi",
-    title: "Pressure injuries",
-    subtitle: "PI_01 · S1–S4 · Unstageable · DTI — Q3 2024",
-    badge: "red",
-    badgeLabel: "Above threshold",
-    stats: [
-      { label: "Prevalence rate", value: "12.4%", status: "red", change: "↑ +1.2% vs Q2" },
-      { label: "Residents affected", value: "11", status: "red", change: "↑ +1 vs Q2" },
-      { label: "Stage 3 or above", value: "3", status: "amber", change: "→ unchanged" },
-      { label: "DTI this quarter", value: "2", status: "amber", change: "↑ +1 vs Q2" },
-    ],
-    charts: [
-      { type: "line", title: "Prevalence trend", sub: "% residents with any pressure injury", data: Q.map((q, i) => ({ name: q, value: [7.2, 8.1, 8.9, 9.3, 10.1, 10.8, 11.2, 12.4][i] })) },
-      { type: "pie", title: "Staging distribution", sub: "Breakdown by stage — Q3 2024", data: [{ name: "S1", value: 3 }, { name: "S2", value: 3 }, { name: "S3", value: 2 }, { name: "S4", value: 1 }, { name: "DTI", value: 2 }], colors: ["#faeeda", "#f0997b", COLORS.red, "#993c1d", COLORS.purple] },
-    ],
+    id:"pi",
+    title:"Pressure injuries",
+    subtitle:"QI 01 — PI_01, PI_S1–S4, PI_US, PI_DTI",
+    description:"Prevalence of new or worsening pressure injuries sustained within the facility during the reporting period. Staged using NPUAP/EPUAP classification.",
+    columns:["Assessment date","Residents assessed","Any PI (PI_01)","Prevalence %","Stage 1","Stage 2","Stage 3","Stage 4","Unstageable","DTI"],
+    highlight:["Prevalence %"],
+    lowerIsBetter: true,
+    rawCols:["PI_01","PI_S1","PI_S2","PI_S3","PI_S4","PI_US","PI_DTI"],
   },
   {
-    id: "falls",
-    title: "Falls & major injury",
-    subtitle: "FALL_01 · FALL_MAJ — Q3 2024",
-    badge: "amber",
-    badgeLabel: "Monitor",
-    stats: [
-      { label: "Any fall rate", value: "8.1%", status: "amber", change: "→ stable" },
-      { label: "Residents who fell", value: "7", status: "amber", change: "→ unchanged" },
-      { label: "Major injury", value: "2", status: "red", change: "↑ +1 vs Q2" },
-      { label: "Major injury rate", value: "2.3%", status: "red", change: "↑ +1.1%" },
-    ],
-    charts: [
-      { type: "line", title: "Falls trend", sub: "Any fall vs major injury rate", data: Q.map((q, i) => ({ name: q, any: [7.1, 7.4, 7.8, 8.0, 7.9, 8.1, 8.1, 8.0][i], major: [0.8, 1.0, 1.1, 1.2, 1.1, 1.2, 2.3, 2.1][i] })) },
-      { type: "bar", title: "Minor vs major injury", sub: "Count by quarter", data: Q.map((q, i) => ({ name: q, minor: [5, 5, 6, 6, 6, 6, 5, 5][i], major: [1, 1, 1, 1, 1, 1, 2, 2][i] })) },
-    ],
+    id:"falls",
+    title:"Falls & major injury",
+    subtitle:"QI 04 — FALL_01, FALL_MAJ",
+    description:"Unplanned falls occurring in the facility, including those resulting in major injury. Major injury includes fractures, head injuries requiring imaging, or any injury requiring hospital admission.",
+    columns:["Assessment date","Residents assessed","Any fall (FALL_01)","Fall rate %","Major injury (FALL_MAJ)","Major injury rate %"],
+    highlight:["Fall rate %","Major injury rate %"],
+    lowerIsBetter: true,
+    rawCols:["FALL_01","FALL_MAJ"],
   },
   {
-    id: "uwl",
-    title: "Unplanned weight loss",
-    subtitle: "UWL_SIG · UWL_CON — Q3 2024",
-    badge: "green",
-    badgeLabel: "On track",
-    stats: [
-      { label: "Significant loss rate", value: "4.2%", status: "green", change: "↓ improving" },
-      { label: "Residents affected", value: "4", status: "green", change: "↓ -1 vs Q2" },
-      { label: "Consecutive loss", value: "2", status: "amber", change: "→ stable" },
-      { label: "Consecutive rate", value: "2.3%", status: "amber", change: "→ stable" },
-    ],
-    charts: [
-      { type: "line", title: "Weight loss trend", sub: "Significant vs consecutive loss rate", data: Q.map((q, i) => ({ name: q, sig: [6.2, 5.8, 5.5, 5.1, 4.8, 4.6, 4.4, 4.2][i], con: [3.1, 2.9, 2.8, 2.7, 2.5, 2.4, 2.3, 2.3][i] })) },
-      { type: "bar", title: "Resident count by type", sub: "Significant vs consecutive — by quarter", data: Q.map((q, i) => ({ name: q, significant: [5, 5, 5, 4, 4, 4, 4, 4][i], consecutive: [3, 2, 2, 2, 2, 2, 2, 2][i] })) },
-    ],
+    id:"uwl",
+    title:"Unplanned weight loss",
+    subtitle:"QI 03 — UWL_SIG, UWL_CON",
+    description:"Residents experiencing significant unplanned weight loss (≥5% over 3 months or ≥10% over 6 months) or consecutive weight loss across reporting periods.",
+    columns:["Assessment date","Residents assessed","Significant loss (UWL_SIG)","Significant rate %","Consecutive loss (UWL_CON)","Consecutive rate %"],
+    highlight:["Significant rate %"],
+    lowerIsBetter: true,
+    rawCols:["UWL_SIG","UWL_CON"],
   },
   {
-    id: "meds",
-    title: "Medications",
-    subtitle: "MED_POLY · MED_AP · MED_AP_WITH_DX · MED_AP_WITHOUT_DX — Q3 2024",
-    badge: "amber",
-    badgeLabel: "Monitor",
-    stats: [
-      { label: "Polypharmacy rate", value: "22.0%", status: "amber", change: "↑ +1.0% vs Q2" },
-      { label: "On 9+ medications", value: "19", status: "amber", change: "↑ +1 vs Q2" },
-      { label: "Antipsychotic use", value: "28.0%", status: "amber", change: "→ stable" },
-      { label: "AP without diagnosis", value: "12.0%", status: "red", change: "↑ auditor focus" },
-    ],
-    charts: [
-      { type: "line", title: "Polypharmacy trend", sub: "% residents on 9 or more medications", data: Q.map((q, i) => ({ name: q, value: [18, 19, 19, 20, 20, 21, 21, 22][i] })) },
-      { type: "pie", title: "Antipsychotic 3-way split", sub: '"Without diagnosis" = auditor focus', data: [{ name: "No antipsychotic", value: 72 }, { name: "With diagnosis", value: 16 }, { name: "Without diagnosis", value: 12 }], colors: [COLORS.green + "cc", COLORS.amber + "cc", COLORS.red] },
-    ],
+    id:"meds",
+    title:"Medications",
+    subtitle:"QI 05 — MED_POLY (polypharmacy ≥9), MED_AP (0=none, 1=with dx, 2=without dx)",
+    description:"Polypharmacy is defined as 9 or more regular medications. Antipsychotic use is split into three categories: no antipsychotic, prescribed with a psychosis diagnosis, and prescribed without a recorded diagnosis (MED_AP=2). The third category is the primary focus of ACQSC regulatory audits.",
+    columns:["Assessment date","Residents assessed","Polypharmacy (MED_POLY)","Polypharmacy %","AP: none","AP: with dx","AP: without dx","AP without dx %"],
+    highlight:["AP without dx %","Polypharmacy %"],
+    lowerIsBetter: true,
+    rawCols:["MED_POLY","MED_AP"],
   },
   {
-    id: "adl",
-    title: "Activities of daily living",
-    subtitle: "ADL_01 · Barthel 10 domains — Q3 2024",
-    badge: "green",
-    badgeLabel: "On track",
-    stats: [
-      { label: "Decline rate", value: "18.3%", status: "green", change: "↓ improving" },
-      { label: "Residents declined", value: "16", status: "green", change: "↓ -2 vs Q2" },
-      { label: "Avg Barthel score", value: "54", status: "green", change: "↑ +2 vs Q2" },
-      { label: "Below 50 (high need)", value: "22", status: "amber", change: "→ stable" },
-    ],
-    charts: [
-      { type: "line", title: "ADL decline trend", sub: "% residents with functional decline per quarter", data: Q.map((q, i) => ({ name: q, value: [24, 23, 22, 21, 20, 19, 19, 18.3][i] })) },
-      { type: "radar", title: "Barthel domain profile", sub: "Average score across 10 domains — Q3 2024", data: ["Bowels", "Bladder", "Grooming", "Toilet", "Feeding", "Transfer", "Mobility", "Dressing", "Stairs", "Bathing"].map((name, i) => ({ subject: name.length > 8 ? name.slice(0, 7) + "…" : name, A: [6.8, 6.4, 7.1, 6.2, 7.4, 5.9, 5.7, 6.3, 4.8, 5.5][i], fullMark: 10 })) },
-    ],
+    id:"adl",
+    title:"Activities of daily living",
+    subtitle:"QI 06 — ADL_01 (decline flag), ADL Barthel 10-domain sub-scores (0–3 each)",
+    description:"Significant functional decline in activities of daily living (ADL), assessed via the Barthel Index. Sub-scores are summed across 10 domains (Bowels, Bladder, Grooming, Toilet, Feeding, Transfer, Mobility, Dressing, Stairs, Bathing), each scored 0–3.",
+    columns:["Assessment date","Residents assessed","Decline flag (ADL_01)","Decline rate %","Avg Barthel total","Avg Bowels","Avg Bladder","Avg Mobility","Avg Transfer","Avg Bathing"],
+    highlight:["Decline rate %","Avg Barthel total"],
+    lowerIsBetter: true,
+    rawCols:["ADL_01","ADL_BOWEL","ADL_BLADDER","ADL_GROOM","ADL_TOILET","ADL_FEED","ADL_TRANS","ADL_MOB","ADL_DRESS","ADL_STAIRS","ADL_BATH"],
   },
   {
-    id: "ic",
-    title: "Incontinence care",
-    subtitle: "IC_IAD · Categories 1A · 1B · 2A · 2B — Q3 2024",
-    badge: "green",
-    badgeLabel: "On track",
-    stats: [
-      { label: "IAD prevalence", value: "6.7%", status: "green", change: "→ stable" },
-      { label: "Residents with IAD", value: "6", status: "green", change: "→ unchanged" },
-      { label: "Category 2 (severe)", value: "2", status: "amber", change: "→ unchanged" },
-      { label: "Severe IAD rate", value: "2.3%", status: "amber", change: "→ stable" },
-    ],
-    charts: [
-      { type: "line", title: "IAD prevalence trend", sub: "% residents with incontinence-associated dermatitis", data: Q.map((q, i) => ({ name: q, value: [7.2, 7.0, 6.9, 6.8, 6.8, 6.7, 6.7, 6.7][i] })) },
-      { type: "pie", title: "IAD category breakdown", sub: "1A · 1B · 2A · 2B — Q3 2024", data: [{ name: "1A (mild)", value: 2 }, { name: "1B (moderate)", value: 2 }, { name: "2A (severe)", value: 1 }, { name: "2B (very severe)", value: 1 }], colors: [COLORS.green + "99", COLORS.green, COLORS.amber, COLORS.red] },
-    ],
+    id:"ic",
+    title:"Incontinence care",
+    subtitle:"QI 07 — IC_IAD, IC_IAD_1A, IC_IAD_1B, IC_IAD_2A, IC_IAD_2B",
+    description:"Incontinence-associated dermatitis (IAD) prevalence, categorised by severity: Category 1A (persistent redness, intact skin), 1B (skin breakdown with maceration), 2A (skin loss with wound), 2B (skin loss with infection).",
+    columns:["Assessment date","Residents assessed","Any IAD (IC_IAD)","IAD rate %","Cat 1A","Cat 1B","Cat 2A","Cat 2B"],
+    highlight:["IAD rate %"],
+    lowerIsBetter: true,
+    rawCols:["IC_IAD","IC_IAD_1A","IC_IAD_1B","IC_IAD_2A","IC_IAD_2B"],
   },
   {
-    id: "rp",
-    title: "Restrictive practices",
-    subtitle: "RP_01 · Mechanical · Physical · Environmental · Seclusion — Q3 2024",
-    badge: "red",
-    badgeLabel: "Above threshold",
-    stats: [
-      { label: "Any restraint rate", value: "9.5%", status: "red", change: "↑ +1.5% vs Q2" },
-      { label: "Residents restrained", value: "8", status: "red", change: "↑ +1 vs Q2" },
-      { label: "Mechanical", value: "4", status: "amber", change: "→ unchanged" },
-      { label: "Seclusion", value: "1", status: "red", change: "↑ new this quarter" },
-    ],
-    charts: [
-      { type: "line", title: "Restraint prevalence trend", sub: "% residents with any restrictive practice", data: Q.map((q, i) => ({ name: q, value: [4, 5, 5, 6, 7, 8, 8, 9.5][i] })) },
-      { type: "bar", title: "Restraint type breakdown", sub: "By type — Q3 2024", data: [{ name: "Mechanical", value: 4 }, { name: "Physical", value: 2 }, { name: "Environmental", value: 1 }, { name: "Seclusion", value: 1 }] },
-    ],
+    id:"rp",
+    title:"Restrictive practices",
+    subtitle:"QI 02 — RP_01, RP_MECH, RP_PHYS, RP_ENV, RP_SEC",
+    description:"Use of restrictive practices including mechanical restraint (RP_MECH), physical restraint (RP_PHYS), environmental restraint (RP_ENV), and seclusion (RP_SEC). All restrictive practices must be approved, documented, and reviewed regularly.",
+    columns:["Assessment date","Residents assessed","Any restraint (RP_01)","Restraint rate %","Mechanical","Physical","Environmental","Seclusion"],
+    highlight:["Restraint rate %"],
+    lowerIsBetter: true,
+    rawCols:["RP_01","RP_MECH","RP_PHYS","RP_ENV","RP_SEC"],
   },
   {
-    id: "hosp",
-    title: "Hospitalisation",
-    subtitle: "HOSP_ED · HOSP_ALL — Q3 2024",
-    badge: "amber",
-    badgeLabel: "Monitor",
-    stats: [
-      { label: "Any hospitalisation", value: "11.2%", status: "amber", change: "→ stable" },
-      { label: "Residents hospitalised", value: "10", status: "amber", change: "→ unchanged" },
-      { label: "ED presentations", value: "5", status: "amber", change: "→ unchanged" },
-      { label: "ED rate", value: "5.7%", status: "amber", change: "→ stable" },
-    ],
-    charts: [
-      { type: "line", title: "Hospitalisation trend", sub: "ED vs all hospitalisations rate", data: Q.map((q, i) => ({ name: q, any: [10.1, 10.5, 10.8, 11.0, 11.1, 11.2, 11.2, 11.0][i], ed: [5.0, 5.1, 5.3, 5.4, 5.5, 5.6, 5.7, 5.5][i] })) },
-      { type: "bar", title: "ED vs admission split", sub: "Count by quarter", data: Q.map((q, i) => ({ name: q, admission: [5, 5, 5, 6, 6, 6, 5, 5][i], ed: [4, 5, 5, 5, 5, 5, 5, 5][i] })) },
-    ],
+    id:"hosp",
+    title:"Hospitalisation",
+    subtitle:"QI 08 — HOSP_ED (unplanned ED), HOSP_ALL (unplanned admission)",
+    description:"Unplanned hospitalisation events, including emergency department presentations (HOSP_ED) and all unplanned hospital admissions (HOSP_ALL). Planned admissions and day procedures are excluded.",
+    columns:["Assessment date","Residents assessed","ED presentations","ED rate %","All admissions","Admission rate %"],
+    highlight:["ED rate %","Admission rate %"],
+    lowerIsBetter: true,
+    rawCols:["HOSP_ED","HOSP_ALL"],
   },
   {
-    id: "ah",
-    title: "Allied health",
-    subtitle: "AH_REC_RECOMMENDED · RCVD_PHYSIO · RCVD_OT · RCVD_SPEECH · RCVD_OTHER — Q3 2024",
-    badge: "green",
-    badgeLabel: "On track",
-    stats: [
-      { label: "Services recommended", value: "48", status: "green", change: "→ stable" },
-      { label: "Services received", value: "33", status: "green", change: "↑ +2 vs Q2" },
-      { label: "Gap (unmet)", value: "15", status: "amber", change: "↓ -2 vs Q2" },
-      { label: "Unmet rate", value: "31.3%", status: "amber", change: "↓ improving" },
-    ],
-    charts: [
-      { type: "bar", title: "Recommended vs received", sub: "Gap by discipline — Q3 2024", data: [{ name: "Physio", Recommended: 22, Received: 17 }, { name: "OT", Recommended: 14, Received: 10 }, { name: "Speech", Recommended: 8, Received: 4 }, { name: "Other", Recommended: 4, Received: 2 }] },
-      { type: "line", title: "Unmet need trend", sub: "Gap count over 8 quarters", data: Q.map((q, i) => ({ name: q, value: [22, 20, 19, 18, 17, 16, 16, 15][i] })) },
-    ],
+    id:"ah",
+    title:"Allied health",
+    subtitle:"QI 13 — AH_REC_RECOMMENDED, AH_REC_RECEIVED, AH_RCVD_PHYSIO/OT/SPEECH/POD/DIET/OTHER",
+    description:"Allied health services recommended vs received. The 'gap' metric (AH gap %) represents residents who were assessed as needing allied health but did not receive it. Disciplines tracked: Physiotherapy, Occupational Therapy, Speech Pathology, Podiatry, Dietetics, and other.",
+    columns:["Assessment date","Residents assessed","Recommended","Received","Gap (unmet)","Gap %","Avg minutes (AH_MIN)","Physio","OT","Speech"],
+    highlight:["Gap %","Avg minutes (AH_MIN)"],
+    lowerIsBetter: true,
+    rawCols:["AH_REC_RECOMMENDED","AH_REC_RECEIVED","AH_RCVD_PHYSIO","AH_RCVD_OT","AH_RCVD_SPEECH","AH_RCVD_POD","AH_RCVD_DIET","AH_RCVD_OTHER","AH_MIN"],
   },
   {
-    id: "cx",
-    title: "Consumer experience",
-    subtitle: "CONSUMER_SCORE — Q3 2024",
-    badge: "green",
-    badgeLabel: "On track",
-    stats: [
-      { label: "Avg satisfaction score", value: "78%", status: "green", change: "↑ +2% vs Q2" },
-      { label: "Responses collected", value: "87", status: "green", change: "→ all residents" },
-      { label: "Score above 80%", value: "41", status: "green", change: "↑ +3 vs Q2" },
-      { label: "Score below 50%", value: "8", status: "amber", change: "→ unchanged" },
-    ],
-    charts: [
-      { type: "line", title: "Satisfaction score trend", sub: "Average consumer experience score per quarter", data: Q.map((q, i) => ({ name: q, value: [70, 72, 73, 74, 75, 76, 77, 78][i] })) },
-      { type: "bar", title: "Score distribution", sub: "Resident scores grouped by range — Q3 2024", data: [{ name: "20–39%", value: 3 }, { name: "40–59%", value: 5 }, { name: "60–79%", value: 38 }, { name: "80–100%", value: 41 }] },
-    ],
+    id:"cx",
+    title:"Consumer experience",
+    subtitle:"QI 10 — CE_01 (composite score 0–24, higher = better)",
+    description:"Consumer experience is measured via the ACQSC Consumer Experience Report survey. CE_01 is a composite score from 0 to 24 derived from resident and family feedback. Higher scores indicate better experience.",
+    columns:["Assessment date","Responses","Avg CE score (/24)","Score as %","Scores ≥18","Scores 12–17","Scores <12"],
+    highlight:["Avg CE score (/24)","Score as %"],
+    lowerIsBetter: false,
+    rawCols:["CE_01"],
   },
   {
-    id: "qol",
-    title: "Quality of life",
-    subtitle: "QOL_SCORE — Q3 2024",
-    badge: "amber",
-    badgeLabel: "Monitor",
-    stats: [
-      { label: "Avg QoL score", value: "64%", status: "amber", change: "→ stable" },
-      { label: "Responses collected", value: "87", status: "green", change: "→ all residents" },
-      { label: "Score above 70%", value: "29", status: "amber", change: "→ unchanged" },
-      { label: "Score below 40%", value: "11", status: "red", change: "↑ +2 vs Q2" },
-    ],
-    charts: [
-      { type: "line", title: "Quality of life trend", sub: "Average QoL score per quarter", data: Q.map((q, i) => ({ name: q, value: [65, 64, 65, 63, 64, 64, 63, 64][i] })) },
-      { type: "bar", title: "Score distribution", sub: "Resident QoL scores by range — Q3 2024", data: [{ name: "<40%", value: 11 }, { name: "40–59%", value: 22 }, { name: "60–79%", value: 43 }, { name: "80%+", value: 11 }] },
-    ],
+    id:"qol",
+    title:"Quality of life",
+    subtitle:"QI 11 — QOL_01 (composite score 0–24, higher = better)",
+    description:"Quality of life is measured using the ACQSC Quality of Life survey. QOL_01 is a composite score from 0 to 24. Higher scores indicate better quality of life. Scores below 12 represent residents with significantly impaired quality of life.",
+    columns:["Assessment date","Responses","Avg QoL score (/24)","Score as %","Scores ≥18","Scores 12–17","Scores <12"],
+    highlight:["Avg QoL score (/24)","Scores <12"],
+    lowerIsBetter: false,
+    rawCols:["QOL_01"],
   },
   {
-    id: "wf",
-    title: "Workforce",
-    subtitle: "WORKFORCE_ADEQUATE — Q3 2024",
-    badge: "green",
-    badgeLabel: "On track",
-    stats: [
-      { label: "Adequacy rate", value: "92%", status: "green", change: "→ stable" },
-      { label: "Adequate shifts", value: "92", status: "green", change: "→ stable" },
-      { label: "Inadequate shifts", value: "8", status: "amber", change: "→ unchanged" },
-      { label: "Trend direction", value: "Stable", status: "green", change: "→ 4 quarters" },
-    ],
-    charts: [
-      { type: "line", title: "Workforce adequacy trend", sub: "% shifts with adequate staffing per quarter", data: Q.map((q, i) => ({ name: q, value: [90, 91, 91, 92, 91, 92, 92, 92][i] })) },
-    ],
+    id:"wf",
+    title:"Workforce",
+    subtitle:"QI 09 — WF_HOURS_PPD (care hours per resident per day), WF_ADEQUATE (staffing threshold met)",
+    description:"Workforce adequacy is assessed at the facility level. WF_HOURS_PPD measures total direct care hours per resident per day, including registered nurses, enrolled nurses, and personal care workers. The minimum threshold is 4.0 hours per resident per day under Australian aged care funding.",
+    columns:["Assessment date","Residents","Hours/resident/day","Threshold met","WF adequate flag count"],
+    highlight:["Hours/resident/day","Threshold met"],
+    lowerIsBetter: false,
+    rawCols:["WF_HOURS_PPD","WF_ADEQUATE"],
   },
   {
-    id: "en",
-    title: "Enrolled nursing",
-    subtitle: "EN_DIRECT_CARE_PCT — Q3 2024",
-    badge: "amber",
-    badgeLabel: "Monitor",
-    stats: [
-      { label: "Direct care time", value: "88%", status: "amber", change: "↓ -2% vs Q2" },
-      { label: "Trend direction", value: "Declining", status: "amber", change: "↓ 3 quarters" },
-      { label: "Q1 2023 baseline", value: "94%", status: "green", change: "→ reference" },
-      { label: "Change since baseline", value: "-6%", status: "red", change: "↑ needs review" },
-    ],
-    charts: [
-      { type: "line", title: "Enrolled nursing direct care trend", sub: "% time spent on direct care activities — 8 quarters", data: Q.map((q, i) => ({ name: q, value: [94, 93, 92, 91, 91, 90, 89, 88][i] })) },
-    ],
+    id:"en",
+    title:"Enrolled nursing",
+    subtitle:"QI 12 — EN_DIRECT_PCT (% time in direct care activities)",
+    description:"The proportion of enrolled nursing time spent on direct resident care activities (as opposed to administrative, documentation, and other indirect tasks). A higher percentage indicates more time at bedside.",
+    columns:["Assessment date","Residents","Direct care %","Admin & other %"],
+    highlight:["Direct care %"],
+    lowerIsBetter: false,
+    rawCols:["EN_DIRECT_PCT"],
   },
   {
-    id: "ls",
-    title: "Lifestyle officer",
-    subtitle: "LIFESTYLE_SESSIONS — Q3 2024",
-    badge: "green",
-    badgeLabel: "On track",
-    stats: [
-      { label: "Avg sessions / resident", value: "2.4", status: "green", change: "→ stable" },
-      { label: "Total sessions", value: "209", status: "green", change: "↑ +12 vs Q2" },
-      { label: "Zero sessions", value: "9", status: "amber", change: "→ unchanged" },
-      { label: "5+ sessions", value: "31", status: "green", change: "↑ +4 vs Q2" },
-    ],
-    charts: [
-      { type: "line", title: "Sessions per resident trend", sub: "Average lifestyle sessions per resident per quarter", data: Q.map((q, i) => ({ name: q, value: [1.8, 1.9, 2.0, 2.1, 2.1, 2.2, 2.3, 2.4][i] })) },
-      { type: "bar", title: "Session frequency distribution", sub: "Resident count by sessions received — Q3 2024", data: [{ name: "0 sessions", value: 9 }, { name: "1–2", value: 28 }, { name: "3–4", value: 19 }, { name: "5+", value: 31 }] },
-    ],
+    id:"ls",
+    title:"Lifestyle officer",
+    subtitle:"QI 14 — LS_SESSIONS_QTR (lifestyle sessions per resident per quarter)",
+    description:"Number of structured lifestyle, recreational, and social activity sessions attended by each resident during the reporting quarter. A minimum of 2 sessions per quarter is generally expected. Residents with zero sessions are a quality concern.",
+    columns:["Assessment date","Residents assessed","Avg sessions","Total sessions","0 sessions","1–2 sessions","3–4 sessions","5+ sessions"],
+    highlight:["Avg sessions","0 sessions"],
+    lowerIsBetter: false,
+    rawCols:["LS_SESSIONS_QTR"],
   },
 ];
 
-function ChartCard({ chart, orange = "#f97316" }) {
-  const { type, title, sub, data, colors } = chart;
-  const chartHeight = 220;
+// ─── Compute helpers ──────────────────────────────────────────────────────────
 
-  const renderChart = () => {
-    if (type === "line") {
-      const first = data[0];
-      const keys = first ? Object.keys(first).filter((k) => k !== "name" && typeof first[k] === "number") : [];
-      const lineColors = [orange, COLORS.red, COLORS.amber, COLORS.blue];
-      return (
-        <LineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <Tooltip />
-          {keys.map((k, i) => (
-            <Line key={k} type="monotone" dataKey={k} stroke={lineColors[i % lineColors.length]} strokeWidth={2} dot={{ r: 3 }} name={k} />
-          ))}
-        </LineChart>
-      );
-    }
-    if (type === "bar") {
-      const first = data[0];
-      const keys = first ? Object.keys(first).filter((k) => k !== "name" && typeof first[k] === "number") : [];
-      const barColors = [orange, COLORS.red, COLORS.amber, COLORS.green];
-      return (
-        <BarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <Tooltip />
-          {keys.length > 1 && <Legend />}
-          {keys.map((k, i) => (
-            <Bar key={k} dataKey={k} fill={barColors[i % barColors.length]} name={k} radius={4} />
-          ))}
-        </BarChart>
-      );
-    }
-    if (type === "radar") {
-      return (
-        <RadarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-          <PolarGrid stroke="#e5e7eb" />
-          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
-          <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 10 }} />
-          <Radar name="Score" dataKey="A" stroke={orange} fill={orange} fillOpacity={0.4} strokeWidth={2} />
-          <Tooltip />
-        </RadarChart>
-      );
-    }
-    if (type === "pie") {
-      const pieColors = colors || [orange, COLORS.amber, COLORS.red, COLORS.green, COLORS.purple];
-      return (
-        <PieChart margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-          <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-            {data.map((_, i) => (
-              <Cell key={i} fill={pieColors[i % pieColors.length]} />
-            ))}
-          </Pie>
-          <Tooltip />
-          <Legend />
-        </PieChart>
-      );
-    }
-    return null;
-  };
+const _cb = (res, col) => res.filter(r => r[col] === 1).length;
+const _avg = (res, col) => {
+  const vals = res.map(r => r[col]).filter(v => v != null && v !== undefined);
+  return vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null;
+};
+const _pct = (count, total) => total > 0 ? `${(100*count/total).toFixed(1)}%` : "0.0%";
 
-  return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-      <h3 className="text-base font-semibold text-gray-800 mb-1">{title}</h3>
-      <p className="text-xs text-gray-500 mb-3">{sub}</p>
-      <ResponsiveContainer width="100%" height={chartHeight}>
-        {renderChart()}
-      </ResponsiveContainer>
-    </div>
-  );
+function _bandCount(res, col, lo, hi) {
+  return res.filter(r => {
+    const v = r[col];
+    return v != null && v >= lo && v <= hi;
+  }).length;
 }
 
-const VALID_SECTION_IDS = new Set(SIDEBAR_ITEMS.map((item) => item.id));
+function computeRow(sectionId, label, res) {
+  const n = res.length;
+  if (!n) return null;
 
-function getInitialSectionId(searchParams) {
+  switch (sectionId) {
+    case "pi": {
+      const pi01 = _cb(res, "PI_01");
+      return [label, String(n), String(pi01), _pct(pi01, n),
+        String(_cb(res, "PI_S1")), String(_cb(res, "PI_S2")),
+        String(_cb(res, "PI_S3")), String(_cb(res, "PI_S4")),
+        String(_cb(res, "PI_US")), String(_cb(res, "PI_DTI"))];
+    }
+    case "falls": {
+      const f01 = _cb(res, "FALL_01");
+      const fmaj = _cb(res, "FALL_MAJ");
+      return [label, String(n), String(f01), _pct(f01, n), String(fmaj), _pct(fmaj, n)];
+    }
+    case "uwl": {
+      const sig = _cb(res, "UWL_SIG");
+      const con = _cb(res, "UWL_CON");
+      return [label, String(n), String(sig), _pct(sig, n), String(con), _pct(con, n)];
+    }
+    case "meds": {
+      const poly = _cb(res, "MED_POLY");
+      const apNone = res.filter(r => (r.MED_AP ?? 0) === 0).length;
+      const apDx = res.filter(r => r.MED_AP === 1).length;
+      const apNo = res.filter(r => r.MED_AP === 2).length;
+      return [label, String(n), String(poly), _pct(poly, n),
+        String(apNone), String(apDx), String(apNo), _pct(apNo, n)];
+    }
+    case "adl": {
+      const adl01 = _cb(res, "ADL_01");
+      const barthel = ["ADL_BOWEL","ADL_BLADDER","ADL_GROOM","ADL_TOILET","ADL_FEED",
+        "ADL_TRANS","ADL_MOB","ADL_DRESS","ADL_STAIRS","ADL_BATH"]
+        .map(c => _avg(res, c) || 0).reduce((a,b) => a+b, 0);
+      return [label, String(n), String(adl01), _pct(adl01, n),
+        barthel.toFixed(1),
+        (_avg(res, "ADL_BOWEL") || 0).toFixed(2),
+        (_avg(res, "ADL_BLADDER") || 0).toFixed(2),
+        (_avg(res, "ADL_MOB") || 0).toFixed(2),
+        (_avg(res, "ADL_TRANS") || 0).toFixed(2),
+        (_avg(res, "ADL_BATH") || 0).toFixed(2)];
+    }
+    case "ic": {
+      const iad = _cb(res, "IC_IAD");
+      return [label, String(n), String(iad), _pct(iad, n),
+        String(_cb(res, "IC_IAD_1A")), String(_cb(res, "IC_IAD_1B")),
+        String(_cb(res, "IC_IAD_2A")), String(_cb(res, "IC_IAD_2B"))];
+    }
+    case "rp": {
+      const rp01 = _cb(res, "RP_01");
+      return [label, String(n), String(rp01), _pct(rp01, n),
+        String(_cb(res, "RP_MECH")), String(_cb(res, "RP_PHYS")),
+        String(_cb(res, "RP_ENV")), String(_cb(res, "RP_SEC"))];
+    }
+    case "hosp": {
+      const ed = _cb(res, "HOSP_ED");
+      const all = _cb(res, "HOSP_ALL");
+      return [label, String(n), String(ed), _pct(ed, n), String(all), _pct(all, n)];
+    }
+    case "ah": {
+      const rec = _cb(res, "AH_REC_RECOMMENDED");
+      const rcvd = _cb(res, "AH_REC_RECEIVED");
+      const gap = Math.max(0, rec - rcvd);
+      const avgMin = (_avg(res, "AH_MIN") || 0).toFixed(0);
+      return [label, String(n), String(rec), String(rcvd), String(gap),
+        rec > 0 ? _pct(gap, rec) : "0.0%", avgMin,
+        String(_cb(res, "AH_RCVD_PHYSIO")), String(_cb(res, "AH_RCVD_OT")),
+        String(_cb(res, "AH_RCVD_SPEECH"))];
+    }
+    case "cx": {
+      const avg = _avg(res, "CE_01");
+      const avgStr = avg != null ? avg.toFixed(1) : "—";
+      const pctStr = avg != null ? `${(avg / 24 * 100).toFixed(1)}%` : "—";
+      return [label, String(n), avgStr, pctStr,
+        String(_bandCount(res, "CE_01", 18, 24)),
+        String(_bandCount(res, "CE_01", 12, 17.99)),
+        String(_bandCount(res, "CE_01", 0, 11.99))];
+    }
+    case "qol": {
+      const avg = _avg(res, "QOL_01");
+      const avgStr = avg != null ? avg.toFixed(1) : "—";
+      const pctStr = avg != null ? `${(avg / 24 * 100).toFixed(1)}%` : "—";
+      return [label, String(n), avgStr, pctStr,
+        String(_bandCount(res, "QOL_01", 18, 24)),
+        String(_bandCount(res, "QOL_01", 12, 17.99)),
+        String(_bandCount(res, "QOL_01", 0, 11.99))];
+    }
+    case "wf": {
+      const avgHrs = _avg(res, "WF_HOURS_PPD");
+      const hrsStr = avgHrs != null ? avgHrs.toFixed(2) : "—";
+      const met = avgHrs != null && avgHrs >= 4.0 ? "Yes" : "No";
+      const adequate = _cb(res, "WF_ADEQUATE");
+      return [label, String(n), hrsStr, met, String(adequate)];
+    }
+    case "en": {
+      const avgPct = _avg(res, "EN_DIRECT_PCT");
+      const pctStr = avgPct != null ? `${avgPct.toFixed(1)}%` : "—";
+      const adminStr = avgPct != null ? `${(100 - avgPct).toFixed(1)}%` : "—";
+      return [label, String(n), pctStr, adminStr];
+    }
+    case "ls": {
+      const avgSess = _avg(res, "LS_SESSIONS_QTR");
+      const avgStr = avgSess != null ? avgSess.toFixed(1) : "—";
+      const totalSess = res.reduce((s, r) => s + (r.LS_SESSIONS_QTR || 0), 0);
+      const zero = res.filter(r => (r.LS_SESSIONS_QTR || 0) === 0).length;
+      const oneTwo = res.filter(r => { const v = r.LS_SESSIONS_QTR || 0; return v >= 1 && v <= 2; }).length;
+      const threeFour = res.filter(r => { const v = r.LS_SESSIONS_QTR || 0; return v >= 3 && v <= 4; }).length;
+      const fivePlus = res.filter(r => (r.LS_SESSIONS_QTR || 0) >= 5).length;
+      return [label, String(n), avgStr, String(totalSess),
+        String(zero), String(oneTwo), String(threeFour), String(fivePlus)];
+    }
+    default:
+      return null;
+  }
+}
+
+function generateNotes(rows, template) {
+  if (!rows || rows.length < 2) return "Upload QI data to see trend analysis across quarters.";
+  const hi = (template.highlight || []).find(c => c !== "Assessment date");
+  if (!hi) return "";
+  const idx = template.columns.indexOf(hi);
+  if (idx < 0) return "";
+  const first = rows[0][idx];
+  const last = rows[rows.length - 1][idx];
+  const firstNum = parseFloat(first);
+  const lastNum = parseFloat(last);
+  if (isNaN(firstNum) || isNaN(lastNum)) return `${hi}: ${first} to ${last} over ${rows.length} quarters.`;
+  const diff = lastNum - firstNum;
+  const dir = template.lowerIsBetter
+    ? (diff < -0.1 ? "improving" : diff > 0.1 ? "worsening" : "stable")
+    : (diff > 0.1 ? "improving" : diff < -0.1 ? "worsening" : "stable");
+  return `${hi}: ${first} → ${last} over ${rows.length} quarters (${dir}, ${diff > 0 ? "+" : ""}${diff.toFixed(1)}).`;
+}
+
+function generateMedsAlert(rows) {
+  if (!rows || !rows.length) return null;
+  const lastRow = rows[rows.length - 1];
+  // Column index 6 = "AP: without dx"
+  const apNoDx = parseInt(lastRow[6]) || 0;
+  const label = lastRow[0];
+  if (apNoDx > 0) {
+    return `AP without recorded psychosis diagnosis: ${apNoDx} residents as of ${label}. These residents require clinical review — this metric is the primary focus of ACQSC audits.`;
+  }
+  return null;
+}
+
+function buildDynamicSections(aggregates, residentsByDate) {
+  if (!aggregates?.length) return null;
+
+  const dates = aggregates.map(a => ({
+    date: a.assessmentDate,
+    label: a.quarterLabel,
+  }));
+
+  // Get latest indicator statuses
+  const latestAgg = aggregates[aggregates.length - 1];
+  const statusMap = {};
+  (latestAgg.indicators || []).forEach(ind => { statusMap[ind.id] = ind.status; });
+
+  const badgeFor = (id) => {
+    const s = statusMap[id] || "grey";
+    if (s === "red") return { badge: "red", badgeLabel: "Above threshold" };
+    if (s === "amber") return { badge: "amber", badgeLabel: "Monitor" };
+    if (s === "green") return { badge: "green", badgeLabel: "On track" };
+    return { badge: "green", badgeLabel: "No data" };
+  };
+
+  return SECTION_TEMPLATES.map(template => {
+    const rows = dates
+      .map(d => computeRow(template.id, d.label, residentsByDate[d.date] || []))
+      .filter(Boolean);
+
+    const { badge, badgeLabel } = badgeFor(template.id);
+    const notes = generateNotes(rows, template);
+    const alert = template.id === "meds" ? generateMedsAlert(rows) : undefined;
+
+    return { ...template, badge, badgeLabel, rows, notes, alert };
+  });
+}
+
+// ─── Status helpers ───────────────────────────────────────────────────────────
+
+const VALID_SECTION_IDS = new Set(SIDEBAR_ITEMS.map(i => i.id));
+
+function getInitialId(searchParams) {
   const id = (searchParams.get("section") || "").toLowerCase().trim();
   return id && VALID_SECTION_IDS.has(id) ? id : "pi";
 }
 
+function badgeCls(badge) {
+  if (badge === "red") return "bg-red-100 text-red-800";
+  if (badge === "amber") return "bg-amber-100 text-amber-800";
+  return "bg-green-100 text-green-800";
+}
+
+function valueCls(col, val, highlights) {
+  if (!highlights.includes(col)) return "text-gray-700";
+  if (typeof val === "string" && val.toLowerCase() === "no") return "text-red-600 font-semibold";
+  if (typeof val === "string" && val.toLowerCase() === "yes") return "text-green-700 font-semibold";
+  return "text-gray-900 font-medium";
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function ReportsPage() {
   const [searchParams] = useSearchParams();
   const sectionParam = searchParams.get("section") || "";
-  const [activeId, setActiveId] = useState(() => getInitialSectionId(searchParams));
-  const [quarter, setQuarter] = useState("Q3 2024");
+  const [activeId, setActiveId] = useState(() => getInitialId(searchParams));
+  const [showRaw, setShowRaw] = useState(false);
+  const [dynamicSections, setDynamicSections] = useState(null);
+  const [residentsByDate, setResidentsByDate] = useState({});
+  const [apiAggregates, setApiAggregates] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const id = sectionParam.toLowerCase().trim();
-    if (id && VALID_SECTION_IDS.has(id) && id !== activeId) {
-      setActiveId(id);
-    }
+    if (id && VALID_SECTION_IDS.has(id) && id !== activeId) setActiveId(id);
   }, [sectionParam]);
 
-  const section = SECTIONS.find((s) => s.id === activeId) || SECTIONS[0];
-  const badgeClass = section.badge === "red" ? "bg-red-100 text-red-800" : section.badge === "amber" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800";
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const aggResp = await getQIAggregates();
+        const aggregates = aggResp?.aggregates || [];
+        if (!aggregates.length || cancelled) { setLoading(false); return; }
+        setApiAggregates(aggregates);
+
+        // Fetch residents for each date in parallel
+        const resByDate = {};
+        await Promise.all(aggregates.map(async (agg) => {
+          try {
+            const resp = await getQIResidents(agg.assessmentDate);
+            resByDate[agg.assessmentDate] = resp?.residents || [];
+          } catch { resByDate[agg.assessmentDate] = []; }
+        }));
+        if (cancelled) return;
+        setResidentsByDate(resByDate);
+
+        const sections = buildDynamicSections(aggregates, resByDate);
+        if (sections) setDynamicSections(sections);
+      } catch (err) {
+        console.warn("Reports: failed to load QI data, using defaults", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const effectiveSections = dynamicSections || SECTION_TEMPLATES;
+  const section = effectiveSections.find(s => s.id === activeId) || effectiveSections[0];
+  const hasData = !!dynamicSections && section.rows?.length > 0;
+
+  // Latest date residents for raw data tab
+  const latestDate = apiAggregates.length ? apiAggregates[apiAggregates.length - 1].assessmentDate : null;
+  const latestLabel = apiAggregates.length ? apiAggregates[apiAggregates.length - 1].quarterLabel : null;
+  const latestResidents = latestDate ? (residentsByDate[latestDate] || []) : [];
+  const rawCols = section.rawCols || [];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
 
       <main className="flex flex-grow pt-32 pb-12 px-4 sm:px-6 lg:px-8 max-w-[1280px] mx-auto gap-6 w-full">
-        {/* Sidebar — same theme as Settings (MyDataSidebar) */}
+        {/* Sidebar */}
         <aside className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 overflow-y-auto w-56 md:w-60 lg:w-64 max-h-[85vh] shrink-0">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">All 14 indicators</h2>
           <ul className="space-y-0.5">
-            {SIDEBAR_ITEMS.map((item) => (
+            {SIDEBAR_ITEMS.map(item => (
               <li
                 key={item.id}
-                onClick={() => setActiveId(item.id)}
+                onClick={() => { setActiveId(item.id); setShowRaw(false); }}
                 className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition ${
                   activeId === item.id ? "bg-primary text-white shadow-sm" : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: activeId === item.id ? "currentColor" : item.dot }} />
                 <span className="flex-1 min-w-0 truncate">{item.label}</span>
-                <span className={`text-xs shrink-0 ${activeId === item.id ? "text-white/90" : "text-gray-400"}`}>{item.count}</span>
               </li>
             ))}
           </ul>
         </aside>
 
-        {/* Content — same card style as Settings */}
+        {/* Content */}
         <div className="flex-1 min-w-0 bg-white rounded-2xl shadow p-8 border border-gray-200">
-          <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+
+          {/* Header */}
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                <strong>{section.title}</strong>
-              </h1>
+              <h1 className="text-2xl font-semibold text-gray-900"><strong>{section.title}</strong></h1>
               <p className="text-sm text-gray-500 mt-1">{section.subtitle}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={quarter}
-                onChange={(e) => setQuarter(e.target.value)}
-                className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-1.5"
-              >
-                <option>Q3 2024</option>
-                <option>Q2 2024</option>
-                <option>Q1 2024</option>
-                <option>Q4 2023</option>
-              </select>
-              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeClass}`}>{section.badgeLabel}</span>
-            </div>
+            {hasData && section.badge && (
+              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeCls(section.badge)}`}>{section.badgeLabel}</span>
+            )}
           </div>
 
-          {/* Stat strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {section.stats.map((stat) => (
-              <div key={stat.label} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{stat.label}</div>
-                <div className={`text-xl font-semibold ${
-                  stat.status === "red" ? "text-red-600" : stat.status === "amber" ? "text-amber-700" : "text-gray-900"
-                }`}>
-                  {stat.value}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">{stat.change}</div>
+          {/* Description */}
+          <p className="text-sm text-gray-600 mb-6 leading-relaxed border-l-4 border-primary/30 pl-4 bg-orange-50/40 py-3 pr-3 rounded-r-lg">{section.description}</p>
+
+          {/* Alert callout (meds only) */}
+          {section.alert && (
+            <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 mb-6">
+              <span className="text-red-500 shrink-0 mt-0.5">!</span>
+              <span>{section.alert}</span>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {loading && (
+            <div className="text-center py-12 text-gray-400">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+              <p className="text-sm">Loading QI data...</p>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && !hasData && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 mb-2">No QI data available for this indicator.</p>
+              <p className="text-sm text-gray-400">Upload a CSV with QI assessment data to populate reports.</p>
+            </div>
+          )}
+
+          {/* Data view */}
+          {!loading && hasData && (
+            <>
+              {/* Tab toggle */}
+              <div className="flex items-center gap-2 mb-5">
+                <button
+                  type="button"
+                  onClick={() => setShowRaw(false)}
+                  className={`text-sm font-medium px-4 py-1.5 rounded-full border transition ${!showRaw ? "bg-gray-900 text-white border-gray-900" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"}`}
+                >
+                  Aggregated data
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRaw(true)}
+                  className={`text-sm font-medium px-4 py-1.5 rounded-full border transition ${showRaw ? "bg-gray-900 text-white border-gray-900" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"}`}
+                >
+                  Resident-level data
+                </button>
               </div>
-            ))}
-          </div>
 
-          {/* Charts — 2-col or 1-col like dashboard-csv/visualize */}
-          <div className="space-y-6">
-            <div className={`grid gap-4 ${section.charts.length >= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
-              {section.charts.map((ch, i) => (
-                <ChartCard key={i} chart={ch} orange="#f97316" />
-              ))}
-            </div>
-          </div>
+              {!showRaw && (
+                <>
+                  {/* Aggregated table */}
+                  <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm mb-6">
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          {section.columns.map(col => (
+                            <th key={col} className={`px-4 py-3 font-semibold whitespace-nowrap ${(section.highlight || []).includes(col) ? "text-gray-900" : "text-gray-500"}`}>{col}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.rows.map((row, ri) => (
+                          <tr key={ri} className={`border-b border-gray-100 ${ri % 2 === 0 ? "bg-white" : "bg-gray-50/60"} hover:bg-orange-50/30 transition`}>
+                            {row.map((cell, ci) => (
+                              <td key={ci} className={`px-4 py-3 ${ci === 0 ? "font-semibold text-gray-800" : valueCls(section.columns[ci], cell, section.highlight || [])}`}>
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Summary notes */}
+                  {section.notes && (
+                    <div className="flex items-start gap-2.5 p-3.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-gray-400">
+                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <span>{section.notes}</span>
+                    </div>
+                  )}
+
+                  {/* Quarter-over-quarter change strip */}
+                  <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {section.rows.map((row, ri) => {
+                      const dateLabel = row[0];
+                      const highlightIdx = section.columns.findIndex(c => (section.highlight || []).includes(c) && c !== "Assessment date");
+                      const val = highlightIdx >= 0 ? row[highlightIdx] : "—";
+                      const prev = ri > 0 ? section.rows[ri - 1][highlightIdx > 0 ? highlightIdx : 1] : null;
+                      const isFirst = ri === 0;
+                      return (
+                        <div key={ri} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <div className="text-xs font-medium text-gray-500 mb-1">{dateLabel}</div>
+                          <div className="text-xl font-semibold text-gray-900">{val}</div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {isFirst ? "Baseline" : prev ? `vs ${prev}` : "—"}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {showRaw && (
+                <div>
+                  {latestResidents.length > 0 ? (
+                    <>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Showing {Math.min(latestResidents.length, 20)} of {latestResidents.length} resident records from <strong>{latestLabel} ({latestDate})</strong>.
+                      </p>
+                      <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <th className="px-3 py-2.5 font-semibold text-gray-700">Resident_ID</th>
+                              <th className="px-3 py-2.5 font-semibold text-gray-700">Assessment_Date</th>
+                              {rawCols.map(col => (
+                                <th key={col} className="px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">{col}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {latestResidents.slice(0, 20).map((r, i) => (
+                              <tr key={r.resident_id} className={`border-b border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/60"}`}>
+                                <td className="px-3 py-2 font-medium text-gray-800">{r.resident_id}</td>
+                                <td className="px-3 py-2 text-gray-600">{r.assessment_date}</td>
+                                {rawCols.map(col => (
+                                  <td key={col} className="px-3 py-2 text-gray-600">{r[col] ?? "—"}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {latestResidents.length > 20 && (
+                        <p className="text-xs text-gray-400 mt-3">Showing first 20 of {latestResidents.length} residents.</p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-gray-500">No resident-level data available.</p>
+                      <p className="text-xs text-gray-400 mt-1">Upload a CSV to populate resident-level records.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
         </div>
       </main>
 

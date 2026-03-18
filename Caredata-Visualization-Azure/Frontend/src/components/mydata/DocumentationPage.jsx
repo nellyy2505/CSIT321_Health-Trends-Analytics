@@ -8,7 +8,7 @@ import {
   getMyData,
   getRecommendations,
   getUploadHistory,
-  getDashboardCSVData,
+  getQIAggregates,
   getHealthScanHistory,
   getSettings,
 } from "../../services/api";
@@ -332,7 +332,7 @@ export default function DocumentationPage() {
         recommendations: selectedOptions.aiRecommendations ? getRecommendations() : Promise.resolve(null),
         uploadHistory: selectedOptions.uploadHistory ? getUploadHistory() : Promise.resolve([]),
         healthScanHistory: selectedOptions.uploadHistory ? getHealthScanHistory() : Promise.resolve([]),
-        dashboardData: selectedOptions.facilityAnalytics && selectedUploadId ? getDashboardCSVData(selectedUploadId) : Promise.resolve(null),
+        dashboardData: selectedOptions.facilityAnalytics ? getQIAggregates().catch(() => null) : Promise.resolve(null),
       };
       const [settings, myData, recommendations, uploads, scans, dashboardData] = await Promise.all([
         promises.settings,
