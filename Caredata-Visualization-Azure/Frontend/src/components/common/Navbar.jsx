@@ -88,6 +88,7 @@ export default function Navbar() {
     if (path === "/reports") return location.pathname.startsWith("/reports");
     if (path === "/benchmarking") return location.pathname.startsWith("/benchmarking");
     if (path === "/settings") return location.pathname.startsWith("/settings");
+    if (path === "/voice/dashboard") return location.pathname.startsWith("/voice/dashboard");
     return location.pathname === path;
   };
 
@@ -95,7 +96,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-dark fixed top-0 left-0 w-full z-50 text-white">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16 relative">
 
         {/* Left — Logo inline */}
         <Link to="/" className="flex items-center gap-2 shrink-0 hover:opacity-90 transition">
@@ -116,12 +117,13 @@ export default function Navbar() {
         )}
 
         {/* Center + Right */}
-        <div className={`${user ? (isOpen ? "flex" : "hidden") : "flex"} sm:flex flex-col sm:flex-row sm:items-center sm:flex-1 sm:ml-10 gap-4 sm:gap-0`}>
+        <div className={`${user ? (isOpen ? "flex" : "hidden") : "flex"} sm:flex flex-col sm:flex-row sm:items-center sm:ml-auto gap-4 sm:gap-0`}>
 
           {user ? (
             <>
-              {/* Center — Nav links */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1 sm:flex-1 sm:justify-center">
+              {/* Center — Nav links (absolutely centered on viewport) */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1
+                sm:absolute sm:left-1/2 sm:-translate-x-1/2">
                 {NAV_ITEMS.map((item) => (
                   <Link
                     key={item.path}
@@ -130,7 +132,7 @@ export default function Navbar() {
                     className={`px-3 py-1.5 text-sm font-medium transition-all whitespace-nowrap ${
                       isActive(item.path)
                         ? "text-white border-b-2 border-primary"
-                        : "text-white/50 hover:text-white border-b-2 border-transparent"
+                        : "text-white/50 hover:text-white border-b-2 border-transparent hover:border-primary/60"
                     }`}
                   >
                     {item.name}

@@ -1,5 +1,5 @@
 /**
- * Voice Biomarker API service.
+ * Voice Biomarker API service — Phase 2.
  * Nurse endpoints use the shared `api` axios instance (nurse JWT).
  * Resident endpoints use a separate instance with resident_token.
  */
@@ -21,6 +21,9 @@ export const generateVoiceLink = (residentId, facilityId = "default") =>
 
 export const generateVoiceLinksBatch = (residentIds, facilityId = "default") =>
   api.post("/api/voice/links/batch", { resident_ids: residentIds, facility_id: facilityId }).then((r) => r.data);
+
+export const listVoiceLinks = () =>
+  api.get("/api/voice/links").then((r) => r.data);
 
 // ---------- Link validation (public) ----------
 
@@ -46,6 +49,20 @@ export const loginResident = (residentId, password) =>
     })
     .then((r) => r.data);
 
+export const resetResidentPassword = (residentId, newPassword) =>
+  api.post("/api/voice/residents/reset-password", {
+    resident_id: residentId,
+    new_password: newPassword,
+  }).then((r) => r.data);
+
+// ---------- Consent (resident auth) ----------
+
+export const getConsent = () =>
+  residentApi.get("/api/voice/consent").then((r) => r.data);
+
+export const updateConsent = (consentGiven) =>
+  residentApi.put("/api/voice/consent", { consent_given: consentGiven }).then((r) => r.data);
+
 // ---------- Recordings (resident auth) ----------
 
 export const uploadRecording = (file) => {
@@ -64,6 +81,9 @@ export const listRecordings = () =>
 export const deleteRecording = (id) =>
   residentApi.delete(`/api/voice/recordings/${id}`).then((r) => r.data);
 
+export const getAudioUrl = (recordingId) =>
+  `${API_BASE_URL}/api/voice/recordings/${recordingId}/audio`;
+
 // ---------- Prompts (public) ----------
 
 export const getRandomPrompt = () =>
@@ -76,6 +96,9 @@ export const getVoiceAnalysis = (residentId) =>
 
 export const getVoiceHistory = (residentId) =>
   api.get(`/api/voice/analysis/${residentId}/history`).then((r) => r.data);
+
+export const getVoiceReport = (residentId) =>
+  `${API_BASE_URL}/api/voice/analysis/${residentId}/report`;
 
 export const getVoiceAlerts = () =>
   api.get("/api/voice/alerts").then((r) => r.data);
@@ -90,3 +113,8 @@ export const getVoiceFacilitySummary = () =>
 
 export const getVoiceResidents = () =>
   api.get("/api/voice/residents").then((r) => r.data);
+
+// ---------- QI Integration (nurse auth) ----------
+
+export const getVoiceQiFlags = () =>
+  api.get("/api/voice/qi-flags").then((r) => r.data);

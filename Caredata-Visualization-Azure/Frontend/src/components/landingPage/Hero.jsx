@@ -42,11 +42,11 @@ export default function Hero() {
       />
 
       {/* Content — positioned in the black zone */}
-      <div className="relative z-20 flex flex-col items-center text-center px-6 pt-[134px] pb-10">
+      <div className="relative z-20 flex flex-col items-center text-center px-6 pt-[104px] pb-10">
 
         {/* Eyebrow */}
         <motion.p
-          className="text-xs font-medium uppercase tracking-[0.2em] text-white mb-4"
+          className="text-xs font-medium uppercase tracking-[0.2em] text-white/50 mb-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
@@ -74,7 +74,7 @@ export default function Hero() {
 
         {/* Headline — regular weight */}
         <motion.p
-          className="text-base sm:text-lg font-normal text-white/50 max-w-md mb-8 leading-relaxed"
+          className="text-sm sm:text-base font-normal text-white/50 max-w-md mb-8 leading-relaxed"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.12 }}

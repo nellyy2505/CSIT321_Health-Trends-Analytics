@@ -132,3 +132,26 @@ def list_by_nurse(generated_by: str) -> list[dict]:
             logger.warning("list_by_nurse: %s", e)
             return []
     return [v for v in _in_memory.values() if v.get("generated_by") == generated_by]
+
+
+def list_all() -> list[dict]:
+    """List all links (dev/admin fallback)."""
+    table = _get_table()
+    if table:
+        try:
+            entities = list(table.query_entities(query_filter="PartitionKey eq 'link'"))
+            return [
+                {
+                    "token": e.get("token") or e["RowKey"],
+                    "resident_id": e.get("resident_id"),
+                    "facility_id": e.get("facility_id"),
+                    "expires_at": e.get("expires_at"),
+                    "used": e.get("used", False),
+                    "created_at": e.get("created_at"),
+                }
+                for e in entities
+            ]
+        except Exception as ex:
+            logger.warning("list_all: %s", ex)
+            return []
+    return list(_in_memory.values())

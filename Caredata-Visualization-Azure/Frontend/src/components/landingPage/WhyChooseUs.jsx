@@ -3,16 +3,16 @@ import { motion } from "framer-motion";
 export default function WhyChooseUs() {
   const reasons = [
     {
-      title: "Secure & Compliant",
-      desc: "Our platform ensures your data is securely submitted, keeping you compliant with all government regulations."
+      title: "Clinical Governance Ready",
+      desc: "Built for Directors of Nursing and quality managers. Track all 14 QI categories with traffic-light alerts, trend analysis, and audit-ready reports aligned to AIHW Manual 4.0."
     },
     {
-      title: "Time-Saving Efficiency",
-      desc: "Reduce administrative burdens by automating the data reporting process, saving your team valuable time."
+      title: "AI-Powered Screening",
+      desc: "Voice biomarker analysis detects early signs of cognitive decline, stroke risk, and depression from 30-second recordings — no specialist equipment required."
     },
     {
-      title: "Tailored Solutions",
-      desc: "Whether you’re uploading CSV files or integrating with an existing system, we provide flexible solutions that meet your facility’s needs."
+      title: "National Benchmarking",
+      desc: "Compare your facility’s indicator rates against AIHW published national medians with percentile rankings and peer group analysis to identify areas for improvement."
     }
   ];
 
@@ -38,10 +38,10 @@ export default function WhyChooseUs() {
           className="text-left mb-12"
         >
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">
-            Purposes
+            Why Care Data
           </p>
           <h2 className="text-4xl font-bold text-gray-900 leading-tight">
-            Why Choosing Us
+            Built for aged care quality teams
           </h2>
         </motion.div>
 

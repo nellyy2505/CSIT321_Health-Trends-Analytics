@@ -48,6 +48,7 @@ def _entity_to_dict(e: dict) -> dict:
         "facility_id": e.get("facility_id"),
         "resident_id": e.get("resident_id"),
         "display_name": e.get("display_name"),
+        "transcript": e.get("transcript", ""),
         "acknowledged": e.get("acknowledged", False),
         "acknowledged_by": e.get("acknowledged_by"),
         "acknowledged_at": e.get("acknowledged_at"),
@@ -66,6 +67,7 @@ def create_analysis(
     facility_id: str | None = None,
     resident_id: str | None = None,
     display_name: str | None = None,
+    transcript: str | None = None,
 ) -> dict:
     """Store a new analysis result. Returns analysis dict."""
     analysis_id = str(uuid.uuid4())
@@ -82,6 +84,7 @@ def create_analysis(
         "facility_id": facility_id or "",
         "resident_id": resident_id or "",
         "display_name": display_name or "",
+        "transcript": transcript or "",
         "acknowledged": False,
         "acknowledged_by": None,
         "acknowledged_at": None,

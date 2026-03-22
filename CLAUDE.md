@@ -70,7 +70,7 @@ npm run dev
 - Content: eyebrow (regular weight, muted) → h1 (semibold, punchy) → CTA button
 
 ### Design System (from UI Style Guide)
-- **Font:** DM Sans (loaded via Google Fonts in `index.html`), weights 300/400/500/600
+- **Font:** Inter (loaded via Google Fonts in `index.html`), weights 300/400/500/600
 - **Primary:** `#ff7b00` (orange) — used for CTA backgrounds, accents, active nav states
 - **Blacks:** `#000000`, `#040404` (hero bar), `#111111` (`dark`), `#1a1a1a` (`grayish`)
 - **Body text on light bg:** `text-gray-600`, `text-gray-900`

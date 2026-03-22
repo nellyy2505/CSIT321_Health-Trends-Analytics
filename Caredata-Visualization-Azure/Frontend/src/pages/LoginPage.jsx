@@ -31,7 +31,7 @@ export default function LoginPage() {
       }
       if (remember) localStorage.setItem("rememberEmail", email);
       else localStorage.removeItem("rememberEmail");
-      window.location.href = "/";
+      window.location.href = "/dashboard";
     } catch (err) {
       console.error("Login error:", err);
       const detail = err.response?.data?.detail || err.message || "Login failed";
@@ -50,7 +50,7 @@ export default function LoginPage() {
       const data = await res.json();
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user || {}));
-      window.location.href = "/";
+      window.location.href = "/dashboard";
     } catch (err) {
       console.error("Google Login Error:", err);
       setError("Google login failed. Please try again.");
@@ -79,14 +79,14 @@ export default function LoginPage() {
               <div>
                 <h1 className="text-3xl font-bold mb-2">Welcome to Care Data</h1>
                 <p className="text-gray-200 mb-8">
-                  Your Gateway to Government Submission.
+                  Clinical governance for aged care facilities.
                 </p>
               </div>
 
               <div>
-                <h2 className="text-xl font-semibold mb-2">Seamless Integration</h2>
+                <h2 className="text-xl font-semibold mb-2">All 14 QI Categories</h2>
                 <p className="text-gray-200 text-sm">
-                  Effortlessly submit your data to Government Portal.
+                  Dashboard, benchmarking, voice biomarkers, and audit-ready reports.
                 </p>
               </div>
             </div>
