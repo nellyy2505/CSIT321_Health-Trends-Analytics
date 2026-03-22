@@ -22,6 +22,9 @@ import ContactPage from "./components/footerPages/ContactPage";
 import ScrollToTop from "./components/common/ScrollToTop";
 import AboutPage from "./components/footerPages/AboutUs";
 import SetupAccountPage from "./pages/SetupAccountPage";
+import VoiceRecordPage from "./pages/VoiceRecordPage";
+import ResidentPortalPage from "./pages/ResidentPortalPage";
+import VoiceDashboardPage from "./pages/VoiceDashboardPage";
 import { useContext } from "react";
 import { AuthContext } from "./context/AuthContext";
 
@@ -127,6 +130,13 @@ export default function App() {
         />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/benchmarking" element={<BenchmarkingPage />} />
+
+        {/* Voice Biomarker — Public (resident-facing) */}
+        <Route path="/voice/record/:token" element={<VoiceRecordPage />} />
+        <Route path="/voice/portal" element={<ResidentPortalPage />} />
+
+        {/* Voice Biomarker — Nurse Auth */}
+        <Route path="/voice/dashboard" element={<RequireAuth><VoiceDashboardPage /></RequireAuth>} />
 
         <Route
           path="/documentation"

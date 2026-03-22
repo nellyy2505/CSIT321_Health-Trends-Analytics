@@ -5,6 +5,10 @@ Generates Synthetic_QI_Data_250r_4q.csv
 250 residents x 4 assessment dates = 1000 rows
 Assessment dates: 2024-03-31, 2024-06-30, 2024-09-30, 2024-12-31
 
+Column names aligned to:
+  - Official QI Program data recording templates (Dept of Health)
+  - Backend _compute_gpms_fields() expectations in upload_csv.py
+
 Designed to produce REALISTIC fluctuation in trend charts:
 - Some indicators improve, some worsen, some are volatile
 - Seasonal effects (falls/hosp worse in Australian winter Q2/Q3)
@@ -29,7 +33,7 @@ RESIDENTS = [f"R-{i:03d}" for i in range(1, N_RESIDENTS + 1)]
 # Differences are 2-6% between quarters for visible chart movement
 
 BINARY_PROBS = {
-    # PI — improving overall but spike in Q3 (new admissions, pressure ulcer outbreak)
+    # QI 1 — PI: improving overall but spike in Q3 (new admissions, pressure ulcer outbreak)
     "PI_01":    [0.14, 0.11, 0.16, 0.09],
     "PI_S1":    [0.04, 0.03, 0.05, 0.025],
     "PI_S2":    [0.05, 0.04, 0.055, 0.03],
@@ -38,41 +42,51 @@ BINARY_PROBS = {
     "PI_US":    [0.008, 0.006, 0.01, 0.005],
     "PI_DTI":   [0.005, 0.004, 0.008, 0.003],
 
-    # RP — CONCERNING UPWARD TREND (regulatory risk, post-Royal Commission focus)
-    "RP_01":    [0.06, 0.08, 0.10, 0.13],
-    "RP_MECH":  [0.025, 0.035, 0.04, 0.055],
-    "RP_PHYS":  [0.02, 0.025, 0.03, 0.04],
-    "RP_ENV":   [0.012, 0.015, 0.022, 0.028],
-    "RP_SEC":   [0.003, 0.005, 0.008, 0.007],
+    # QI 2 — RP: CONCERNING UPWARD TREND (regulatory risk, post-Royal Commission focus)
+    "RP_01":       [0.06, 0.08, 0.10, 0.13],
+    "RP_MECH":     [0.025, 0.035, 0.04, 0.055],
+    "RP_PHYS":     [0.02, 0.025, 0.03, 0.04],
+    "RP_ENV":      [0.012, 0.015, 0.022, 0.028],
+    "RP_SECLUSION":[0.003, 0.005, 0.008, 0.007],
 
-    # UWL — steady improvement (nutrition program working)
+    # QI 3 — UWL: steady improvement (nutrition program working)
     "UWL_SIG":  [0.065, 0.052, 0.04, 0.032],
     "UWL_CON":  [0.035, 0.028, 0.02, 0.015],
 
-    # Falls — SEASONAL: worse in Australian winter (Q2 Jun, Q3 Sep), better in summer
+    # QI 4 — Falls: SEASONAL — worse in Australian winter (Q2 Jun, Q3 Sep), better in summer
     "FALL_01":  [0.07, 0.11, 0.12, 0.065],
     "FALL_MAJ": [0.012, 0.022, 0.025, 0.010],
 
-    # Meds polypharmacy — BIG IMPROVEMENT STORY: medication review program in Q3
+    # QI 5 — Meds polypharmacy: BIG IMPROVEMENT STORY — medication review program in Q3
     "MED_POLY": [0.26, 0.24, 0.16, 0.13],
 
-    # ADL decline — slight worsening (aging cohort)
+    # QI 6 — ADL decline: slight worsening (aging cohort)
     "ADL_01":   [0.15, 0.17, 0.19, 0.21],
 
-    # IC — fluctuating, slight improvement
+    # QI 7 — IC: fluctuating, slight improvement
+    "IC_INCONTINENCE": [0.42, 0.40, 0.39, 0.38],  # base incontinence rate
     "IC_IAD":   [0.08, 0.065, 0.075, 0.055],
     "IC_IAD_1A":[0.03, 0.022, 0.028, 0.02],
     "IC_IAD_1B":[0.022, 0.018, 0.02, 0.015],
     "IC_IAD_2A":[0.015, 0.012, 0.015, 0.01],
     "IC_IAD_2B":[0.013, 0.013, 0.012, 0.01],
 
-    # Hosp — SEASONAL like falls, ED presentations spike mid-year
+    # QI 8 — Hosp: SEASONAL like falls, ED presentations spike mid-year
     "HOSP_ED":  [0.09, 0.14, 0.13, 0.08],
     "HOSP_ALL": [0.07, 0.10, 0.095, 0.065],
 
-    # AH recommended/received — improving but gap still exists
+    # QI 13 — AH recommended/received: improving but gap still exists
     "AH_REC_RECOMMENDED": [0.72, 0.75, 0.78, 0.82],
     "AH_REC_RECEIVED":    [0.45, 0.55, 0.62, 0.72],
+    # Per-discipline recommended (subset of AH_REC_RECOMMENDED)
+    "AH_RCMD_PHYSIO":     [0.40, 0.42, 0.44, 0.46],
+    "AH_RCMD_OT":         [0.30, 0.32, 0.34, 0.36],
+    "AH_RCMD_SPEECH":     [0.15, 0.16, 0.17, 0.18],
+    "AH_RCMD_POD":        [0.25, 0.26, 0.28, 0.30],
+    "AH_RCMD_DIET":       [0.20, 0.22, 0.24, 0.26],
+    "AH_RCMD_OTHER":      [0.10, 0.12, 0.14, 0.16],
+    "AH_RCMD_ASSIST":     [0.15, 0.17, 0.19, 0.22],
+    # Per-discipline received
     "AH_RCVD_PHYSIO":     [0.30, 0.38, 0.40, 0.45],
     "AH_RCVD_OT":         [0.22, 0.28, 0.30, 0.35],
     "AH_RCVD_SPEECH":     [0.10, 0.12, 0.14, 0.16],
@@ -81,7 +95,7 @@ BINARY_PROBS = {
     "AH_RCVD_OTHER":      [0.08, 0.10, 0.12, 0.14],
     "AH_RCVD_ASSIST":     [0.12, 0.15, 0.18, 0.20],
 
-    # WF adequate — facility crossed threshold only in Q4
+    # QI 9 — WF adequate: facility crossed threshold only in Q4
     "WF_ADEQUATE": [0, 0, 0, 1],
 }
 
@@ -94,18 +108,24 @@ MED_AP_PROBS = [
     [0.85, 0.09, 0.06],   # Q4 — sustained improvement
 ]
 
+# NUM_MEDICATIONS: integer count per resident (for histogram: 1-3, 4-6, 7-9, 10+)
+# Mean decreasing over time (medication review program)
+MED_COUNT_MEANS = [7.5, 7.2, 6.0, 5.5]
+MED_COUNT_STD = 3.0
+
 # ADL Barthel sub-scores — mean (out of 3), slight decline (aging)
+# Column names match backend _compute_gpms_fields() expectations
 ADL_MEANS = {
-    "ADL_BOWEL":   [2.30, 2.25, 2.20, 2.15],
-    "ADL_BLADDER": [2.15, 2.10, 2.05, 2.00],
-    "ADL_GROOM":   [2.40, 2.35, 2.32, 2.28],
-    "ADL_TOILET":  [2.10, 2.05, 2.00, 1.95],
-    "ADL_FEED":    [2.50, 2.48, 2.45, 2.42],
-    "ADL_TRANS":   [2.00, 1.95, 1.88, 1.82],
-    "ADL_MOB":     [1.95, 1.88, 1.82, 1.75],
-    "ADL_DRESS":   [2.15, 2.10, 2.05, 2.00],
-    "ADL_STAIRS":  [1.65, 1.58, 1.50, 1.42],
-    "ADL_BATH":    [1.85, 1.80, 1.75, 1.68],
+    "ADL_BOWEL":    [2.30, 2.25, 2.20, 2.15],
+    "ADL_BLADDER":  [2.15, 2.10, 2.05, 2.00],
+    "ADL_GROOMING": [2.40, 2.35, 2.32, 2.28],
+    "ADL_TOILET":   [2.10, 2.05, 2.00, 1.95],
+    "ADL_FEEDING":  [2.50, 2.48, 2.45, 2.42],
+    "ADL_TRANSFER": [2.00, 1.95, 1.88, 1.82],
+    "ADL_MOBILITY": [1.95, 1.88, 1.82, 1.75],
+    "ADL_DRESSING": [2.15, 2.10, 2.05, 2.00],
+    "ADL_STAIRS":   [1.65, 1.58, 1.50, 1.42],
+    "ADL_BATHING":  [1.85, 1.80, 1.75, 1.68],
 }
 
 # CE_01 / QOL_01 (0-24, higher = better)
@@ -161,6 +181,9 @@ def ternary_sample(probs):
 
 
 rows = []
+# Track previous ADL scores per resident for decline calculation
+prev_adl_scores = {}
+
 for qi, date in enumerate(DATES):
     wf_hours    = WF_HOURS_PPD[qi]
     wf_adequate = BINARY_PROBS["WF_ADEQUATE"][qi]
@@ -179,9 +202,27 @@ for qi, date in enumerate(DATES):
         # MED_AP ternary
         row["MED_AP"] = ternary_sample(MED_AP_PROBS[qi])
 
-        # ADL Barthel sub-scores
+        # NUM_MEDICATIONS — integer count of current medications
+        row["NUM_MEDICATIONS"] = max(0, clamp_int(
+            random.gauss(MED_COUNT_MEANS[qi], MED_COUNT_STD), 0, 20
+        ))
+
+        # ADL Barthel sub-scores (0-3 scale each)
+        adl_total = 0
         for col, means in ADL_MEANS.items():
-            row[col] = clamp_int(random.gauss(means[qi], 0.65), 0, 3)
+            score = clamp_int(random.gauss(means[qi], 0.65), 0, 3)
+            row[col] = score
+            adl_total += score
+
+        # ADL total scores (current and previous)
+        row["ADL_CURR_SCORE"] = adl_total
+        prev = prev_adl_scores.get(res)
+        if prev is not None:
+            row["ADL_PREV_SCORE"] = prev
+        else:
+            # First quarter — generate a slightly higher previous score
+            row["ADL_PREV_SCORE"] = min(30, adl_total + clamp_int(random.gauss(1.5, 1.0), 0, 4))
+        prev_adl_scores[res] = adl_total
 
         # CE_01, QOL_01
         row["CE_01"]  = normal_clamp(CE_MEANS[qi],  CE_STD,  0, 24)
@@ -199,23 +240,44 @@ for qi, date in enumerate(DATES):
 
         rows.append(row)
 
-# Column order
+# Column order — aligned with template and backend expectations
 COLS = [
     "Resident_ID", "Assessment_Date",
+    # QI 1 — Pressure injuries
     "PI_01", "PI_S1", "PI_S2", "PI_S3", "PI_S4", "PI_US", "PI_DTI",
-    "RP_01", "RP_MECH", "RP_PHYS", "RP_ENV", "RP_SEC",
+    # QI 2 — Restrictive practices (sub-types match backend RP_SECLUSION)
+    "RP_01", "RP_MECH", "RP_PHYS", "RP_ENV", "RP_SECLUSION",
+    # QI 3 — Unplanned weight loss
     "UWL_SIG", "UWL_CON",
+    # QI 4 — Falls
     "FALL_01", "FALL_MAJ",
-    "MED_POLY", "MED_AP",
-    "ADL_01", "ADL_BOWEL", "ADL_BLADDER", "ADL_GROOM", "ADL_TOILET",
-    "ADL_FEED", "ADL_TRANS", "ADL_MOB", "ADL_DRESS", "ADL_STAIRS", "ADL_BATH",
-    "IC_IAD", "IC_IAD_1A", "IC_IAD_1B", "IC_IAD_2A", "IC_IAD_2B",
+    # QI 5 — Medications (NUM_MEDICATIONS = integer count for histogram)
+    "MED_POLY", "MED_AP", "NUM_MEDICATIONS",
+    # QI 6 — ADL (full Barthel sub-score names + totals)
+    "ADL_01", "ADL_PREV_SCORE", "ADL_CURR_SCORE",
+    "ADL_BOWEL", "ADL_BLADDER", "ADL_GROOMING", "ADL_TOILET",
+    "ADL_FEEDING", "ADL_TRANSFER", "ADL_MOBILITY", "ADL_DRESSING",
+    "ADL_STAIRS", "ADL_BATHING",
+    # QI 7 — Incontinence care
+    "IC_INCONTINENCE", "IC_IAD", "IC_IAD_1A", "IC_IAD_1B", "IC_IAD_2A", "IC_IAD_2B",
+    # QI 8 — Hospitalisation
     "HOSP_ED", "HOSP_ALL",
-    "CE_01", "QOL_01",
+    # QI 10 — Consumer experience (0-24 score)
+    "CE_01",
+    # QI 11 — Quality of life (0-24 score)
+    "QOL_01",
+    # QI 13 — Allied health (minutes + per-discipline recommended & received)
     "AH_MIN", "AH_REC_RECOMMENDED", "AH_REC_RECEIVED",
+    "AH_RCMD_PHYSIO", "AH_RCMD_OT", "AH_RCMD_SPEECH", "AH_RCMD_POD",
+    "AH_RCMD_DIET", "AH_RCMD_OTHER", "AH_RCMD_ASSIST",
     "AH_RCVD_PHYSIO", "AH_RCVD_OT", "AH_RCVD_SPEECH", "AH_RCVD_POD",
     "AH_RCVD_DIET", "AH_RCVD_OTHER", "AH_RCVD_ASSIST",
-    "WF_HOURS_PPD", "WF_ADEQUATE", "EN_DIRECT_PCT", "LS_SESSIONS_QTR",
+    # QI 9 — Workforce (facility-level)
+    "WF_HOURS_PPD", "WF_ADEQUATE",
+    # QI 12 — Enrolled nursing (facility-level)
+    "EN_DIRECT_PCT",
+    # QI 14 — Lifestyle officer
+    "LS_SESSIONS_QTR",
 ]
 
 out_path = os.path.join(os.path.dirname(__file__), "Synthetic_QI_Data_250r_4q.csv")

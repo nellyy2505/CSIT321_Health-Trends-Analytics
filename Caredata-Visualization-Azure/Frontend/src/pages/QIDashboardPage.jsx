@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
-import { getQIAggregates } from "../services/api";
+import { getQIAggregates, getGPMSList, getGPMSByDate } from "../services/api";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  Radar, PieChart, Pie, Cell, Legend, CartesianGrid,
+  Radar, PieChart, Pie, Cell, Legend, CartesianGrid, ReferenceLine,
 } from "recharts";
 
 // ─── Constants (structural only — no demo data) ──────────────────────────────
@@ -37,11 +37,49 @@ const TREND_DIR_COLORS = ["#16a34a","#f97316","#d85a30"];
 const ID_TO_SHORT = {pi:"PI",rp:"RP",falls:"Falls",meds:"Meds",adl:"ADL",uwl:"UWL",incontinence:"IC",hosp:"Hosp",allied_health:"AH Gap",consumer_exp:"CX",qol:"QoL",workforce:"WF",enrolled_nursing:"EN",lifestyle:"LS"};
 const LOB_IDS = new Set(["pi","rp","falls","meds","adl","uwl","incontinence","hosp","allied_health"]);
 
+// 14 distinct colours for the all-indicators multi-line trend chart
+const TREND_COLORS = [
+  "#2563eb","#dc2626","#16a34a","#f97316","#8b5cf6",
+  "#06b6d4","#ec4899","#ca8a04","#14b8a6","#6366f1",
+  "#f43f5e","#84cc16","#a855f7","#78716c",
+];
+const TREND_SHORT = {
+  pi:"PI",rp:"RP",falls:"Falls",meds:"Meds",adl:"ADL",uwl:"UWL",
+  ic:"IC",hosp:"Hosp",ah:"AH",cx:"CX",qol:"QoL",wf:"WF",en:"EN",ls:"LS",
+};
+
 // AIHW national median benchmarks (published figures — not demo data)
 const NATIONAL_BENCHMARKS = {
   pi: 10.2, rp: 7.8, falls: 8.3, meds: 19.8,
   uwl: 5.1, incontinence: 6.9, hosp: 11.0, adl: 20.1,
 };
+
+// Visualization panel sidebar items — 14 per-category deep-dive panels
+const VIS_PANELS = [
+  { id: "panel-qi-pi",    label: "Pressure Injuries",          qis: "QI 1",  indicatorId: "pi" },
+  { id: "panel-qi-rp",    label: "Restrictive Practices",      qis: "QI 2",  indicatorId: "rp" },
+  { id: "panel-qi-uwl",   label: "Unplanned Weight Loss",      qis: "QI 3",  indicatorId: "uwl" },
+  { id: "panel-qi-falls", label: "Falls & Major Injury",       qis: "QI 4",  indicatorId: "falls" },
+  { id: "panel-qi-meds",  label: "Medications",                qis: "QI 5",  indicatorId: "meds" },
+  { id: "panel-qi-adl",   label: "Activities of Daily Living", qis: "QI 6",  indicatorId: "adl" },
+  { id: "panel-qi-ic",    label: "Incontinence Care",          qis: "QI 7",  indicatorId: "incontinence" },
+  { id: "panel-qi-hosp",  label: "Hospitalisation",            qis: "QI 8",  indicatorId: "hosp" },
+  { id: "panel-qi-wf",    label: "Workforce",                  qis: "QI 9",  indicatorId: "workforce" },
+  { id: "panel-qi-cx",    label: "Consumer Experience",        qis: "QI 10", indicatorId: "consumer_exp" },
+  { id: "panel-qi-qol",   label: "Quality of Life",            qis: "QI 11", indicatorId: "qol" },
+  { id: "panel-qi-en",    label: "Enrolled Nursing",           qis: "QI 12", indicatorId: "enrolled_nursing" },
+  { id: "panel-qi-ah",    label: "Allied Health",              qis: "QI 13", indicatorId: "allied_health" },
+  { id: "panel-qi-ls",    label: "Lifestyle Officer",          qis: "QI 14", indicatorId: "lifestyle" },
+];
+
+// Stacked bar color palettes
+const PI_STAGE_COLORS = { "Stage 1": "#fdba74", "Stage 2": "#fb923c", "Stage 3": "#f97316", "Stage 4": "#dc2626", Unstageable: "#7c3aed", DTI: "#475569" };
+const RP_COLORS = { Mechanical: "#dc2626", Physical: "#f97316", Environmental: "#eab308", Seclusion: "#7c3aed" };
+const IAD_COLORS = { "Cat 1A": "#fde68a", "Cat 1B": "#fbbf24", "Cat 2A": "#f97316", "Cat 2B": "#dc2626" };
+const AP_COLORS = { "No AP": "#d1d5db", "With Dx": "#f97316", "Without Dx": "#dc2626" };
+const CX_QOL_COLORS = { Excellent: "#16a34a", Good: "#22c55e", Moderate: "#eab308", Poor: "#f97316", "Very Poor": "#dc2626" };
+const MED_RANGE_COLORS = { "0–3": "#86efac", "4–6": "#fde68a", "7–9": "#fdba74", "10+": "#dc2626" };
+const ADL_CHANGE_COLORS = { Improved: "#16a34a", Stable: "#9ca3af", Declined: "#dc2626" };
 
 // ─── Builder functions (derive display data from API aggregates) ──────────────
 
@@ -85,68 +123,7 @@ function buildStatusDistFromAggregates(qiAggregates) {
   ].filter(d => d.value > 0);
 }
 
-function buildChartSidebarFromAggregates(qiAggregates) {
-  const dotColors = { red: "#d85a30", amber: "#ba7517", green: "#1d9e75", grey: "#9ca3af" };
-  if (!qiAggregates?.aggregates?.length) {
-    return REPORTS_SECTION_IDS.map((id, i) => ({ id, label: INDICATORS_EMPTY[i], dot: dotColors.grey, count: "—" }));
-  }
-  const latest = qiAggregates.aggregates[qiAggregates.aggregates.length - 1];
-  const totalResidents = latest.totalResidents || 0;
-  return (latest.indicators || []).map(ind => {
-    const sectionId = DASHBOARD_TO_REPORTS_SECTION[ind.id] || ind.id;
-    const count = totalResidents > 0 ? Math.round((ind.currentRate ?? 0) * totalResidents / 100) : 0;
-    return { id: sectionId, label: ind.name, dot: dotColors[ind.status] || dotColors.grey, count: String(count) };
-  });
-}
-
-function buildSectionsFromAggregates(qiAggregates) {
-  if (!qiAggregates?.aggregates?.length) return [];
-  const aggs = qiAggregates.aggregates;
-  const latest = aggs[aggs.length - 1];
-  const quarterLabels = qiAggregates.quarterLabels || aggs.map(a => a.quarterLabel || a.assessmentDate);
-  const totalResidents = latest.totalResidents || 0;
-
-  return (latest.indicators || []).map(ind => {
-    const rate = ind.currentRate ?? 0;
-    const count = totalResidents > 0 ? Math.round(rate * totalResidents / 100) : 0;
-    const sectionId = DASHBOARD_TO_REPORTS_SECTION[ind.id] || ind.id;
-
-    const trendData = aggs.map((a, i) => {
-      const matching = (a.indicators || []).find(x => x.id === ind.id);
-      return { name: quarterLabels[i] || `Q${i + 1}`, value: matching?.currentRate ?? null };
-    }).filter(d => d.value !== null);
-
-    const barData = aggs.map((a, i) => {
-      const matching = (a.indicators || []).find(x => x.id === ind.id);
-      return { name: quarterLabels[i] || `Q${i + 1}`, value: matching?.currentRate ?? 0 };
-    });
-
-    const prev = aggs.length >= 2 ? (aggs[aggs.length - 2].indicators || []).find(x => x.id === ind.id) : null;
-    const prevRate = prev?.currentRate;
-    const delta = prevRate != null ? rate - prevRate : null;
-    const deltaStr = delta != null
-      ? `${delta > 0 ? "↑" : delta < 0 ? "↓" : "→"} ${delta !== 0 ? Math.abs(delta).toFixed(1) + "% vs prior" : "unchanged"}`
-      : "—";
-
-    return {
-      id: sectionId,
-      title: ind.name,
-      subtitle: `${sectionId.toUpperCase()} — ${quarterLabels[quarterLabels.length - 1] || "Latest"}`,
-      badge: ind.status || "grey",
-      badgeLabel: STATUS_LABEL[ind.status] || "No data",
-      stats: [
-        { label: "Current rate", value: ind.valueDisplay || `${rate.toFixed(1)}%`, status: ind.status || "grey", change: deltaStr },
-        { label: "Residents affected", value: String(count), status: count > 0 ? (ind.status || "grey") : "green", change: `of ${totalResidents} total` },
-        { label: "Trend", value: ind.trendArrow === "up" ? "Worsening" : ind.trendArrow === "down" ? "Improving" : "Stable", status: ind.trendArrow === "up" ? "red" : ind.trendArrow === "down" ? "green" : "amber", change: `Over ${quarterLabels.length} quarters` },
-        { label: "Assessment dates", value: String(quarterLabels.length), status: "green", change: `${totalResidents} residents per date` },
-      ],
-      charts: [
-        { type: "line", title: `${ind.name} — Prevalence trend`, sub: `Rate across ${quarterLabels.length} assessment dates`, data: trendData },
-        { type: "bar", title: `${ind.name} — Quarterly rates`, sub: "Rate per assessment period", data: barData },
-      ],
-    };
-  });
-}
+// (buildChartSidebarFromAggregates and buildSectionsFromAggregates removed — replaced by panel builders)
 
 function buildTrendDirectionCounts(trendSeries) {
   if (!trendSeries?.length) return [];
@@ -181,6 +158,336 @@ function buildOverviewRadar(qiAggregates) {
     }));
 }
 
+function buildAllIndicatorsTrendData(trendSeries) {
+  if (!trendSeries?.length) return [];
+  const dates = trendSeries[0]?.data?.map(d => d.date) || [];
+  return dates.map((date, i) => {
+    const point = { date };
+    trendSeries.forEach(ts => { point[ts.name] = ts.data[i]?.value ?? null; });
+    return point;
+  });
+}
+
+// ─── Per-category visualization builders (GPMS + aggregates) ────────────────
+
+function buildDateToQuarterMap(qiAggregates) {
+  const map = {};
+  const dates = qiAggregates?.dates || [];
+  const labels = qiAggregates?.quarterLabels || [];
+  dates.forEach((d, i) => { map[d] = labels[i] || d; });
+  return map;
+}
+
+function _sortedGpms(allGpmsData) {
+  if (!allGpmsData) return [];
+  return Object.entries(allGpmsData).sort(([a], [b]) => a.localeCompare(b));
+}
+
+/** QI 1: PI severity stacked bar + S3+ proportion */
+function buildPISeverityData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData)
+    .filter(([, fd]) => fd.pi_total > 0)
+    .map(([date, fd]) => {
+      const s3plus = (fd.pi_s3 || 0) + (fd.pi_s4 || 0) + (fd.pi_unstage || 0) + (fd.pi_dti || 0);
+      const piAny = fd.pi_any || 0;
+      return {
+        quarter: dateToQuarter[date] || date,
+        "Stage 1": fd.pi_s1 || 0, "Stage 2": fd.pi_s2 || 0,
+        "Stage 3": fd.pi_s3 || 0, "Stage 4": fd.pi_s4 || 0,
+        Unstageable: fd.pi_unstage || 0, DTI: fd.pi_dti || 0,
+        _total: fd.pi_total, _any: piAny, _s3plus: s3plus,
+        _s3PlusPct: piAny > 0 ? Number((s3plus / piAny * 100).toFixed(1)) : 0,
+      };
+    });
+}
+
+/** QI 2: RP sub-type breakdown */
+function buildRPData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { subTypeBreakdown: [] };
+  const sorted = _sortedGpms(allGpmsData);
+  const hasSubs = sorted.some(([, fd]) => fd.rp_mech != null || fd.rp_phys != null);
+  if (!hasSubs) return { subTypeBreakdown: [] };
+  const subTypeBreakdown = sorted
+    .filter(([, fd]) => fd.rp_total > 0)
+    .map(([date, fd]) => ({
+      quarter: dateToQuarter[date] || date,
+      Mechanical: fd.rp_mech || 0, Physical: fd.rp_phys || 0,
+      Environmental: fd.rp_env || 0, Seclusion: fd.rp_sec || 0,
+      _total: fd.rp_total, _any: fd.rp_any || 0,
+    }));
+  return { subTypeBreakdown };
+}
+
+/** QI 3: UWL significant vs consecutive dual-line */
+function buildUWLData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { dualTrend: [] };
+  const dualTrend = _sortedGpms(allGpmsData)
+    .filter(([, fd]) => fd.uwl_total_sig > 0)
+    .map(([date, fd]) => ({
+      quarter: dateToQuarter[date] || date,
+      Significant: Number(((fd.uwl_sig || 0) / fd.uwl_total_sig * 100).toFixed(1)),
+      Consecutive: Number(((fd.uwl_con || 0) / (fd.uwl_total_con || fd.uwl_total_sig) * 100).toFixed(1)),
+    }));
+  return { dualTrend };
+}
+
+/** QI 4: Falls — any/major/severity ratio */
+function buildFallsData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { fallsTrend: [] };
+  const fallsTrend = _sortedGpms(allGpmsData)
+    .filter(([, fd]) => fd.falls_total > 0)
+    .map(([date, fd]) => {
+      const anyFall = fd.falls_any || 0;
+      const major = fd.falls_major || 0;
+      return {
+        quarter: dateToQuarter[date] || date,
+        "Any fall": Number((anyFall / fd.falls_total * 100).toFixed(1)),
+        "Major injury": Number((major / fd.falls_total * 100).toFixed(1)),
+        "Severity ratio": anyFall > 0 ? Number((major / anyFall * 100).toFixed(1)) : 0,
+      };
+    });
+  return { fallsTrend };
+}
+
+/** QI 5: Medication analysis — polypharmacy trend + AP breakdown (unchanged) */
+function buildMedicationData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { polyTrend: [], apBreakdown: [] };
+  const sorted = _sortedGpms(allGpmsData);
+  const polyTrend = sorted
+    .filter(([, fd]) => fd.poly_total > 0)
+    .map(([date, fd]) => ({ quarter: dateToQuarter[date] || date, rate: Number(((fd.poly_count || 0) / fd.poly_total * 100).toFixed(1)) }));
+  const apBreakdown = sorted
+    .filter(([, fd]) => fd.ap_total > 0)
+    .map(([date, fd]) => {
+      const any = fd.ap_any || 0;
+      const withDx = fd.ap_with_dx || 0;
+      return {
+        quarter: dateToQuarter[date] || date,
+        "No AP": fd.ap_total - any,
+        "With Dx": withDx,
+        "Without Dx": Math.max(0, any - withDx),
+      };
+    });
+  return { polyTrend, apBreakdown };
+}
+
+/** QI 6: ADL Barthel radar */
+function buildADLData(allGpmsData, dateToQuarter) {
+  const DOMAINS = ["Bowels","Bladder","Grooming","Toilet","Feeding","Transfer","Mobility","Dressing","Stairs","Bathing"];
+  const KEYS = ["adl_bowel","adl_bladder","adl_grooming","adl_toilet","adl_feeding","adl_transfer","adl_mobility","adl_dressing","adl_stairs","adl_bathing"];
+  if (!allGpmsData) return { radarData: [], hasSubScores: false };
+  const sorted = _sortedGpms(allGpmsData);
+  const hasSubs = sorted.some(([, fd]) => KEYS.some(k => fd[k] != null));
+  if (!hasSubs) return { radarData: [], hasSubScores: false };
+  const earliest = sorted[0]?.[1];
+  const latest = sorted[sorted.length - 1]?.[1];
+  const radarData = DOMAINS.map((domain, i) => ({
+    domain,
+    latest: latest?.[KEYS[i]] ?? 0,
+    earliest: earliest?.[KEYS[i]] ?? 0,
+  }));
+  return { radarData, hasSubScores: true };
+}
+
+/** QI 7: IAD severity stacked bar */
+function buildICData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { iadSeverity: [] };
+  const iadSeverity = _sortedGpms(allGpmsData)
+    .filter(([, fd]) => fd.ic_total > 0)
+    .map(([date, fd]) => ({
+      quarter: dateToQuarter[date] || date,
+      "Cat 1A": fd.ic_iad_1a || 0, "Cat 1B": fd.ic_iad_1b || 0,
+      "Cat 2A": fd.ic_iad_2a || 0, "Cat 2B": fd.ic_iad_2b || 0,
+      _total: fd.ic_total, _iadAny: fd.ic_iad_any || 0,
+    }));
+  return { iadSeverity };
+}
+
+/** QI 8: Hospitalisation — ED vs All dual-line */
+function buildHospData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { dualTrend: [] };
+  const dualTrend = _sortedGpms(allGpmsData)
+    .filter(([, fd]) => fd.hosp_total > 0)
+    .map(([date, fd]) => ({
+      quarter: dateToQuarter[date] || date,
+      "All hosp": Number(((fd.hosp_all || 0) / fd.hosp_total * 100).toFixed(1)),
+      "ED presentations": Number(((fd.hosp_ed || 0) / fd.hosp_total * 100).toFixed(1)),
+    }));
+  return { dualTrend };
+}
+
+/** QI 9/12/14: Single indicator trend from aggregates with optional target line */
+function buildSingleTrendPanel(trendSeries, indicatorId, target) {
+  const ts = (trendSeries || []).find(t => t.id === indicatorId);
+  if (!ts || !ts.data?.length) return { data: [], target, current: null, gap: null };
+  const current = ts.data[ts.data.length - 1]?.value ?? null;
+  return {
+    data: ts.data,
+    name: ts.name,
+    unit: ts.unit,
+    lob: ts.lob,
+    target: target ?? null,
+    current,
+    gap: target != null && current != null ? Number((target - current).toFixed(1)) : null,
+  };
+}
+
+/** QI 10: Consumer experience score band distribution */
+function buildCXData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { bands: [], positivePct: null };
+  const bands = _sortedGpms(allGpmsData)
+    .filter(([, fd]) => (fd.cx_excellent ?? fd.cx_good) != null)
+    .map(([date, fd]) => ({
+      quarter: dateToQuarter[date] || date,
+      Excellent: fd.cx_excellent || 0, Good: fd.cx_good || 0,
+      Moderate: fd.cx_moderate || 0, Poor: fd.cx_poor || 0, "Very Poor": fd.cx_very_poor || 0,
+    }));
+  const last = bands[bands.length - 1];
+  const total = last ? (last.Excellent + last.Good + last.Moderate + last.Poor + last["Very Poor"]) : 0;
+  const positivePct = total > 0 ? Number(((last.Excellent + last.Good) / total * 100).toFixed(1)) : null;
+  return { bands, positivePct };
+}
+
+/** QI 11: Quality of life score band distribution */
+function buildQoLData(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return { bands: [], positivePct: null };
+  const bands = _sortedGpms(allGpmsData)
+    .filter(([, fd]) => (fd.qol_excellent ?? fd.qol_good) != null)
+    .map(([date, fd]) => ({
+      quarter: dateToQuarter[date] || date,
+      Excellent: fd.qol_excellent || 0, Good: fd.qol_good || 0,
+      Moderate: fd.qol_moderate || 0, Poor: fd.qol_poor || 0, "Very Poor": fd.qol_very_poor || 0,
+    }));
+  const last = bands[bands.length - 1];
+  const total = last ? (last.Excellent + last.Good + last.Moderate + last.Poor + last["Very Poor"]) : 0;
+  const positivePct = total > 0 ? Number(((last.Excellent + last.Good) / total * 100).toFixed(1)) : null;
+  return { bands, positivePct };
+}
+
+/** QI 13: Allied health discipline breakdown + time series */
+function buildAlliedHealthData(allGpmsData, qiAggregates, dateToQuarter) {
+  if (!allGpmsData) return { disciplines: [], gapRate: null, timeSeries: [] };
+  const dates = Object.keys(allGpmsData).sort();
+  const latestFd = dates.length ? allGpmsData[dates[dates.length - 1]] : null;
+  if (!latestFd) return { disciplines: [], gapRate: null, timeSeries: [] };
+  const DISC_KEYS = [
+    { name: "Physiotherapy", key: "ah_rcv_physio" },
+    { name: "Occupational Therapy", key: "ah_rcv_ot" },
+    { name: "Speech Pathology", key: "ah_rcv_speech" },
+    { name: "Podiatry", key: "ah_rcv_pod" },
+    { name: "Dietetics", key: "ah_rcv_diet" },
+    { name: "AH Assistants", key: "ah_rcv_assist" },
+    { name: "Other", key: "ah_rcv_other" },
+  ];
+  const disciplines = DISC_KEYS.map(d => ({ name: d.name, received: latestFd[d.key] || 0 }));
+  const timeSeries = dates.map(d => {
+    const fd = allGpmsData[d];
+    const pt = { quarter: dateToQuarter?.[d] || d };
+    DISC_KEYS.forEach(dk => { pt[dk.name] = fd[dk.key] || 0; });
+    return pt;
+  });
+  const ahInd = (qiAggregates?.aggregates || []).at(-1)?.indicators?.find(i => i.id === "allied_health");
+  // Gap analysis: recommended vs received per discipline
+  const RCMD_KEYS = [
+    { name: "Physiotherapy", key: "ah_rcmd_physio" },
+    { name: "Occupational Therapy", key: "ah_rcmd_ot" },
+    { name: "Speech Pathology", key: "ah_rcmd_speech" },
+    { name: "Podiatry", key: "ah_rcmd_pod" },
+    { name: "Dietetics", key: "ah_rcmd_diet" },
+    { name: "AH Assistants", key: "ah_rcmd_assist" },
+    { name: "Other", key: "ah_rcmd_other" },
+  ];
+  const hasRcmd = RCMD_KEYS.some(d => latestFd[d.key] != null);
+  const gapData = hasRcmd
+    ? DISC_KEYS.map((d, i) => ({
+        name: d.name,
+        Recommended: latestFd[RCMD_KEYS[i].key] || 0,
+        Received: latestFd[d.key] || 0,
+      }))
+    : null;
+  return { disciplines, gapRate: ahInd?.currentRate ?? null, total: latestFd.ah_total || 0, timeSeries, gapData };
+}
+
+// ─── Additional builder functions (Phase 2 additions) ─────────────────────────
+
+function buildPIPrevalenceTrend(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData).map(([d, fd]) => ({
+    quarter: dateToQuarter?.[d] || d,
+    rate: fd.pi_total ? +((fd.pi_any / fd.pi_total) * 100).toFixed(1) : 0,
+  }));
+}
+
+function buildRPPrevalenceTrend(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData).map(([d, fd]) => ({
+    quarter: dateToQuarter?.[d] || d,
+    rate: fd.rp_total ? +((fd.rp_any / fd.rp_total) * 100).toFixed(1) : 0,
+  }));
+}
+
+function buildMedDistribution(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData)
+    .filter(([, fd]) => fd.med_range_0_3 != null)
+    .map(([d, fd]) => ({
+      quarter: dateToQuarter?.[d] || d,
+      "0–3": fd.med_range_0_3 || 0,
+      "4–6": fd.med_range_4_6 || 0,
+      "7–9": fd.med_range_7_9 || 0,
+      "10+": fd.med_range_10plus || 0,
+    }));
+}
+
+function buildADLChangeDistribution(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData)
+    .filter(([, fd]) => fd.adl_improved != null)
+    .map(([d, fd]) => ({
+      quarter: dateToQuarter?.[d] || d,
+      Improved: fd.adl_improved || 0,
+      Stable: fd.adl_stable || 0,
+      Declined: fd.adl_declined || 0,
+    }));
+}
+
+function buildICSevereTrend(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData).map(([d, fd]) => {
+    const total = (fd.ic_iad_any || 0);
+    const severe = (fd.ic_iad_2a || 0) + (fd.ic_iad_2b || 0);
+    return { quarter: dateToQuarter?.[d] || d, severePct: total ? +((severe / total) * 100).toFixed(1) : 0 };
+  });
+}
+
+function buildHospEDRatio(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData).map(([d, fd]) => {
+    const all = fd.hosp_all || 0;
+    const ed = fd.hosp_ed || 0;
+    return { quarter: dateToQuarter?.[d] || d, ratio: all ? +((ed / all) * 100).toFixed(1) : 0 };
+  });
+}
+
+function buildCXPositiveTrend(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData).map(([d, fd]) => {
+    const total = (fd.cx_excellent || 0) + (fd.cx_good || 0) + (fd.cx_moderate || 0) + (fd.cx_poor || 0) + (fd.cx_very_poor || 0);
+    const positive = (fd.cx_excellent || 0) + (fd.cx_good || 0);
+    return { quarter: dateToQuarter?.[d] || d, positivePct: total ? +((positive / total) * 100).toFixed(1) : 0 };
+  });
+}
+
+function buildQoLPositiveTrend(allGpmsData, dateToQuarter) {
+  if (!allGpmsData) return [];
+  return _sortedGpms(allGpmsData).map(([d, fd]) => {
+    const total = (fd.qol_excellent || 0) + (fd.qol_good || 0) + (fd.qol_moderate || 0) + (fd.qol_poor || 0) + (fd.qol_very_poor || 0);
+    const positive = (fd.qol_excellent || 0) + (fd.qol_good || 0);
+    return { quarter: dateToQuarter?.[d] || d, positivePct: total ? +((positive / total) * 100).toFixed(1) : 0 };
+  });
+}
+
 // ─── Helper components ────────────────────────────────────────────────────────
 
 function SparklineSVG({ data, status }) {
@@ -201,79 +508,6 @@ function SparklineSVG({ data, status }) {
       <polyline points={pts} fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
       <circle cx={cx} cy={cy} r="2.5" fill={c} />
     </svg>
-  );
-}
-
-function ChartCard({ chart }) {
-  const { type, title, sub, data, colors } = chart;
-  const renderChart = () => {
-    if (type === "line") {
-      const keys = data[0] ? Object.keys(data[0]).filter(k => k !== "name" && typeof data[0][k] === "number") : [];
-      const lc = [ORANGE, COLORS.red, COLORS.amber, COLORS.blue];
-      return (
-        <LineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <Tooltip />
-          {keys.length > 1 && <Legend />}
-          {keys.map((k, i) => <Line key={k} type="monotone" dataKey={k} stroke={lc[i % lc.length]} strokeWidth={2} dot={{ r: 3 }} name={k} />)}
-        </LineChart>
-      );
-    }
-    if (type === "bar") {
-      const keys = data[0] ? Object.keys(data[0]).filter(k => k !== "name" && typeof data[0][k] === "number") : [];
-      const bc = [ORANGE, COLORS.red, COLORS.amber, COLORS.green];
-      return (
-        <BarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-          <Tooltip />
-          {keys.length > 1 && <Legend />}
-          {keys.map((k, i) => <Bar key={k} dataKey={k} fill={bc[i % bc.length]} name={k} radius={4} />)}
-        </BarChart>
-      );
-    }
-    if (type === "radar") {
-      const keys = data[0] ? Object.keys(data[0]).filter(k => k !== "subject" && k !== "fullMark") : [];
-      const rc = [ORANGE, "#9ca3af"];
-      const rd = ["", "5 3"];
-      return (
-        <RadarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-          <PolarGrid stroke="#e5e7eb" />
-          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
-          <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 10 }} />
-          {keys.map((k, i) => (
-            <Radar key={k} name={k} dataKey={k}
-              stroke={rc[i % rc.length]} fill={i === 0 ? rc[0] : "none"} fillOpacity={i === 0 ? 0.4 : 0}
-              strokeWidth={2} strokeDasharray={rd[i % rd.length]} />
-          ))}
-          <Legend />
-          <Tooltip />
-        </RadarChart>
-      );
-    }
-    if (type === "pie") {
-      const pc = colors || [ORANGE, COLORS.amber, COLORS.red, COLORS.green, COLORS.purple];
-      return (
-        <PieChart margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-          <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value" nameKey="name"
-            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-            {data.map((_, i) => <Cell key={i} fill={pc[i % pc.length]} />)}
-          </Pie>
-          <Tooltip /><Legend />
-        </PieChart>
-      );
-    }
-    return null;
-  };
-  return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-      <h3 className="text-base font-semibold text-gray-800 mb-1">{title}</h3>
-      <p className="text-xs text-gray-500 mb-3">{sub}</p>
-      <ResponsiveContainer width="100%" height={220}>{renderChart()}</ResponsiveContainer>
-    </div>
   );
 }
 
@@ -321,11 +555,12 @@ const LEFT_NAV_BASE = [
 
 export default function QIDashboardPage() {
   const [activePage, setActivePage] = useState("overview");
-  const [activeChartId, setActiveChartId] = useState("pi");
   const [visExpanded, setVisExpanded] = useState(false);
   const [quarterIndex, setQuarterIndex] = useState(0);
   const [qiAggregates, setQiAggregates] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [allGpmsData, setAllGpmsData] = useState(null);
+  const [gpmsLoading, setGpmsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -340,6 +575,32 @@ export default function QIDashboardPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // Fetch GPMS sub-indicator data for all known dates
+  useEffect(() => {
+    if (!qiAggregates?.dates?.length) return;
+    let cancelled = false;
+    setGpmsLoading(true);
+    getGPMSList()
+      .then(resp => {
+        const dates = (resp?.submissions || []).map(s => s.date || s.assessmentDate || s.RowKey);
+        if (!dates.length || cancelled) return {};
+        return Promise.allSettled(dates.map(d => getGPMSByDate(d)))
+          .then(results => {
+            const gpmsMap = {};
+            results.forEach((r, i) => {
+              if (r.status === "fulfilled" && r.value?.formData) {
+                gpmsMap[dates[i]] = r.value.formData;
+              }
+            });
+            return gpmsMap;
+          });
+      })
+      .then(gpmsMap => { if (!cancelled && gpmsMap) setAllGpmsData(gpmsMap); })
+      .catch(err => console.warn("GPMS fetch failed:", err))
+      .finally(() => { if (!cancelled) setGpmsLoading(false); });
+    return () => { cancelled = true; };
+  }, [qiAggregates]);
 
   // ─── Derived data ──────────────────────────────────────────────────────────
   const aggs = qiAggregates?.aggregates || [];
@@ -362,16 +623,46 @@ export default function QIDashboardPage() {
   const currentQuarterLabel = hasQuarters ? quarters[safeQI] : "—";
 
   const effectiveTrendSeries = buildTrendSeriesFromAggregates(qiAggregates) || [];
-  const chartSidebar = buildChartSidebarFromAggregates(qiAggregates);
-  const sections = buildSectionsFromAggregates(qiAggregates);
   const trendDirectionCounts = buildTrendDirectionCounts(effectiveTrendSeries);
   const overviewRadar = buildOverviewRadar(qiAggregates);
+  const allIndicatorsTrendData = buildAllIndicatorsTrendData(effectiveTrendSeries);
+
+  // Per-category visualization data (GPMS + aggregates)
+  const dateToQuarter = buildDateToQuarterMap(qiAggregates);
+  const piSeverity = buildPISeverityData(allGpmsData, dateToQuarter);
+  const rpData = buildRPData(allGpmsData, dateToQuarter);
+  const uwlData = buildUWLData(allGpmsData, dateToQuarter);
+  const fallsData = buildFallsData(allGpmsData, dateToQuarter);
+  const medData = buildMedicationData(allGpmsData, dateToQuarter);
+  const adlData = buildADLData(allGpmsData, dateToQuarter);
+  const icData = buildICData(allGpmsData, dateToQuarter);
+  const hospData = buildHospData(allGpmsData, dateToQuarter);
+  const wfPanel = buildSingleTrendPanel(effectiveTrendSeries, "wf", 90);
+  const cxData = buildCXData(allGpmsData, dateToQuarter);
+  const qolData = buildQoLData(allGpmsData, dateToQuarter);
+  const enPanel = buildSingleTrendPanel(effectiveTrendSeries, "en", 90);
+  const ahData = buildAlliedHealthData(allGpmsData, qiAggregates, dateToQuarter);
+  const lsPanel = buildSingleTrendPanel(effectiveTrendSeries, "ls");
+  // Phase 2 additions — deeper charts
+  const piPrevTrend = buildPIPrevalenceTrend(allGpmsData, dateToQuarter);
+  const rpPrevTrend = buildRPPrevalenceTrend(allGpmsData, dateToQuarter);
+  const medDistribution = buildMedDistribution(allGpmsData, dateToQuarter);
+  const adlChange = buildADLChangeDistribution(allGpmsData, dateToQuarter);
+  const icSevereTrend = buildICSevereTrend(allGpmsData, dateToQuarter);
+  const hospEDRatio = buildHospEDRatio(allGpmsData, dateToQuarter);
+  const cxPositiveTrend = buildCXPositiveTrend(allGpmsData, dateToQuarter);
+  const qolPositiveTrend = buildQoLPositiveTrend(allGpmsData, dateToQuarter);
 
   // ─── Navigation helpers ────────────────────────────────────────────────────
+  // Map indicator section IDs to their visualization panel
+  const SECTION_TO_PANEL = { pi: "panel-qi-pi", falls: "panel-qi-falls", uwl: "panel-qi-uwl", meds: "panel-qi-meds", adl: "panel-qi-adl", ic: "panel-qi-ic", rp: "panel-qi-rp", hosp: "panel-qi-hosp", ah: "panel-qi-ah", cx: "panel-qi-cx", qol: "panel-qi-qol", wf: "panel-qi-wf", en: "panel-qi-en", ls: "panel-qi-ls" };
   const goToChartSection = (sectionId) => {
     setActivePage("visualization");
-    setActiveChartId(sectionId);
     setVisExpanded(true);
+    const panelId = SECTION_TO_PANEL[sectionId] || "panel-qi-pi";
+    setTimeout(() => {
+      document.getElementById(panelId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const handleNavClick = (navId) => {
@@ -384,12 +675,24 @@ export default function QIDashboardPage() {
     }
   };
 
-  const handleChartSubClick = (sectionId) => {
+  const handlePanelClick = (panelId) => {
     setActivePage("visualization");
-    setActiveChartId(sectionId);
+    setVisExpanded(true);
+    setTimeout(() => {
+      document.getElementById(panelId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const isVisActive = activePage === "visualization";
+
+  // Status dot color for a single indicator
+  const panelDotColor = (indicatorId) => {
+    const dotColors = { red: "#d85a30", amber: "#ba7517", green: "#1d9e75", grey: "#9ca3af" };
+    if (!latest) return dotColors.grey;
+    const ind = (latest.indicators || []).find(i => i.id === indicatorId);
+    if (!ind) return dotColors.grey;
+    return dotColors[ind.status] || dotColors.grey;
+  };
 
   // ─── Sidebar ──────────────────────────────────────────────────────────────
 
@@ -399,26 +702,26 @@ export default function QIDashboardPage() {
       <ul className="space-y-0.5">
         {LEFT_NAV_BASE.map(nav => {
           const isActive = activePage === nav.id || (nav.id === "visualization" && isVisActive);
-          const children = nav.hasChildren ? chartSidebar : null;
+          const hasChildren = nav.hasChildren;
           return (
             <li key={nav.id}>
               <button type="button" onClick={() => handleNavClick(nav.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition text-left ${isActive && !children ? "bg-primary text-white shadow-sm" : isActive && children ? "bg-orange-50 text-orange-700" : "text-gray-700 hover:bg-gray-100"}`}>
-                <span className={isActive && !children ? "text-white" : "text-gray-500"}>{nav.icon}</span>
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition text-left ${isActive && !hasChildren ? "bg-primary text-white shadow-sm" : isActive && hasChildren ? "bg-orange-50 text-orange-700" : "text-gray-700 hover:bg-gray-100"}`}>
+                <span className={isActive && !hasChildren ? "text-white" : "text-gray-500"}>{nav.icon}</span>
                 <span className="flex-1">{nav.label}</span>
-                {children && (
+                {hasChildren && (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`w-3 h-3 transition-transform ${visExpanded ? "rotate-90" : ""}`}><polyline points="9 18 15 12 9 6" /></svg>
                 )}
               </button>
-              {children && visExpanded && (
+              {hasChildren && visExpanded && (
                 <ul className="mt-0.5 ml-3 pl-3 border-l border-gray-200 space-y-0.5">
-                  {children.map(sub => (
-                    <li key={sub.id}>
-                      <button type="button" onClick={() => handleChartSubClick(sub.id)}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition text-left ${activePage === "visualization" && activeChartId === sub.id ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: activePage === "visualization" && activeChartId === sub.id ? "currentColor" : sub.dot }} />
-                        <span className="flex-1 truncate">{sub.label}</span>
-                        <span className={`shrink-0 ${activePage === "visualization" && activeChartId === sub.id ? "text-white/80" : "text-gray-400"}`}>{sub.count}</span>
+                  {VIS_PANELS.map(panel => (
+                    <li key={panel.id}>
+                      <button type="button" onClick={() => handlePanelClick(panel.id)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition text-left text-gray-600 hover:bg-gray-100">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: panelDotColor(panel.indicatorId) }} />
+                        <span className="flex-1 truncate">{panel.label}</span>
+                        <span className="text-[10px] text-gray-400 shrink-0">{panel.qis}</span>
                       </button>
                     </li>
                   ))}
@@ -646,41 +949,539 @@ export default function QIDashboardPage() {
     </div>
   );
 
-  // ─── Visualization tab ──────────────────────────────────────────────────────
+  // ─── Visualization tab (14 per-category panels) ────────────────────────────
 
-  const activeSection = sections.find(s => s.id === activeChartId) || sections[0];
-
-  const visualizationTab = activeSection ? (
-    <div className="flex-1 min-w-0 bg-white rounded-2xl shadow p-8 border border-gray-200">
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900"><strong>{activeSection.title}</strong></h2>
-          <p className="text-sm text-gray-500 mt-1">{activeSection.subtitle}</p>
-        </div>
-        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${activeSection.badge === "red" ? "bg-red-100 text-red-800" : activeSection.badge === "amber" ? "bg-amber-100 text-amber-800" : activeSection.badge === "green" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
-          {activeSection.badgeLabel}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {activeSection.stats.map(stat => (
-          <div key={stat.label} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{stat.label}</div>
-            <div className={`text-xl font-semibold ${stat.status === "red" ? "text-red-600" : stat.status === "amber" ? "text-amber-700" : "text-gray-900"}`}>{stat.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{stat.change}</div>
-          </div>
-        ))}
-      </div>
-      <div className={`grid gap-4 ${activeSection.charts.length >= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
-        {activeSection.charts.map((ch, i) => <ChartCard key={i} chart={ch} />)}
-      </div>
-      <div className="mt-6 text-center">
-        <Link to="/reports" className="text-sm text-primary font-medium hover:underline">View detailed breakdown in Reports →</Link>
-      </div>
+  const gpmsEmpty = !allGpmsData || Object.keys(allGpmsData).length === 0;
+  const GpmsPlaceholder = ({ msg }) => (
+    <p className="text-sm text-gray-400 py-8 text-center">{gpmsLoading ? "Loading sub-indicator data…" : (msg || "Upload QI CSV to see sub-indicator breakdowns.")}</p>
+  );
+  // Helper: find indicator from latest aggregates
+  const getInd = (id) => (latest?.indicators || []).find(i => i.id === id);
+  // Helper: stat card
+  const StatCard = ({ label, value, sub, danger }) => (
+    <div className={`bg-white rounded-xl border ${danger ? "border-red-200 bg-red-50" : "border-gray-200"} shadow-sm p-3`}>
+      <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">{label}</div>
+      <div className={`text-lg font-semibold ${danger ? "text-red-600" : "text-gray-900"}`}>{value ?? "—"}</div>
+      {sub && <div className="text-[10px] text-gray-400">{sub}</div>}
     </div>
-  ) : (
-    <div className="flex-1 min-w-0 bg-white rounded-2xl shadow p-8 border border-gray-200 text-center">
-      <p className="text-gray-500">No visualization data available. Upload QI data to see charts.</p>
-      <Link to="/upload-csv" className="text-primary font-medium text-sm hover:underline mt-2 inline-block">Go to Data entry →</Link>
+  );
+  // Helper: single-indicator trend line panel
+  const SingleTrendChart = ({ panelData, color = "#f97316" }) => {
+    if (!panelData?.data?.length) return <GpmsPlaceholder />;
+    return (
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={panelData.data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+          <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" unit={panelData.unit || ""} />
+          <Tooltip formatter={(v) => `${Number(v).toFixed(1)}${panelData.unit || ""}`} />
+          {panelData.target != null && <ReferenceLine y={panelData.target} stroke="#9ca3af" strokeDasharray="6 3" label={{ value: `${panelData.target}% target`, position: "right", fontSize: 10, fill: "#9ca3af" }} />}
+          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} name={panelData.name || "Rate"} />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const visualizationTab = (
+    <div className="flex-1 min-w-0 space-y-6">
+      <div className="mb-2">
+        <h2 className="text-2xl font-semibold text-gray-900"><strong>Visualization</strong></h2>
+        <p className="text-sm text-gray-500 mt-1">Deep-dive analytics across all 14 QI categories</p>
+      </div>
+
+      {!hasData && !loading && (
+        <div className="bg-white rounded-2xl border-2 border-dashed border-gray-300 p-8 text-center">
+          <p className="text-gray-500">No QI data available. Upload CSV to populate visualizations.</p>
+          <Link to="/upload-csv" className="text-primary font-medium text-sm hover:underline mt-2 inline-block">Go to Data entry →</Link>
+        </div>
+      )}
+
+      {/* ── QI 1: Pressure Injuries ── */}
+      <div id="panel-qi-pi" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 1</span><h3 className="text-base font-semibold text-gray-900">Pressure Injuries — Severity Distribution</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Is PI severity getting worse even if the count is stable?</p>
+        {piSeverity.length > 0 ? (<>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <StatCard label="PI count" value={piSeverity[piSeverity.length-1]?._any} sub="latest quarter" />
+            <StatCard label="Prevalence" value={getInd("pi")?.currentRate != null ? `${getInd("pi").currentRate}%` : "—"} />
+            <StatCard label="High-acuity (S3+)" value={piSeverity[piSeverity.length-1]?._s3plus} />
+            <StatCard label="S3+ %" value={piSeverity[piSeverity.length-1]?._s3PlusPct != null ? `${piSeverity[piSeverity.length-1]._s3PlusPct}%` : "—"} danger={piSeverity[piSeverity.length-1]?._s3PlusPct > 30} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Severity Distribution</p>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={piSeverity} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" label={{ value: "Residents", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "#9ca3af" } }} />
+                  <Tooltip />
+                  {Object.entries(PI_STAGE_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="pi" fill={color} name={key} />))}
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {piPrevTrend.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Prevalence Rate Trend</p>
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart data={piPrevTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" unit="%" />
+                    <Tooltip formatter={(v) => `${v}%`} />
+                    <Line type="monotone" dataKey="rate" stroke="#f97316" strokeWidth={2} dot={{ r: 3, fill: "#f97316" }} name="PI prevalence %" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 2: Restrictive Practices ── */}
+      <div id="panel-qi-rp" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 2</span><h3 className="text-base font-semibold text-gray-900">Restrictive Practices — Sub-Type Distribution</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Which types of restraint are being used, and is the mix shifting?</p>
+        {(() => { const ind = getInd("rp"); return (
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <StatCard label="RP rate" value={ind?.currentRate != null ? `${ind.currentRate}%` : "—"} />
+            <StatCard label="Residents with RP" value={rpData.subTypeBreakdown[rpData.subTypeBreakdown.length-1]?._any ?? "—"} sub="latest quarter" />
+            <StatCard label="Trend" value={ind?.trendArrow === "up" ? "▲ Worsening" : ind?.trendArrow === "down" ? "▼ Improving" : "— Stable"} />
+          </div>
+        ); })()}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {rpData.subTypeBreakdown.length > 0 ? (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Sub-Type Breakdown</p>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={rpData.subTypeBreakdown} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" label={{ value: "Residents", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "#9ca3af" } }} />
+                  <Tooltip />
+                  {Object.entries(RP_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="rp" fill={color} name={key} />))}
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <GpmsPlaceholder msg="Upload CSV with RP sub-type columns (RP_MECH, RP_PHYS, RP_ENV, RP_SECLUSION) for detailed breakdown." />}
+          {rpPrevTrend.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Prevalence Rate Trend</p>
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={rpPrevTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" unit="%" />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <ReferenceLine y={8} stroke="#dc2626" strokeDasharray="6 3" label={{ value: "8% threshold", position: "right", fontSize: 10, fill: "#dc2626" }} />
+                  <Line type="monotone" dataKey="rate" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: "#dc2626" }} name="RP prevalence %" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── QI 3: Unplanned Weight Loss ── */}
+      <div id="panel-qi-uwl" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 3</span><h3 className="text-base font-semibold text-gray-900">Unplanned Weight Loss — Significant vs Consecutive</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Are we catching weight loss early (consecutive) before it becomes significant?</p>
+        {uwlData.dualTrend.length > 0 ? (<>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <StatCard label="Significant UWL" value={getInd("uwl")?.currentRate != null ? `${getInd("uwl").currentRate}%` : "—"} />
+            <StatCard label="Consecutive (latest)" value={uwlData.dualTrend[uwlData.dualTrend.length-1]?.Consecutive != null ? `${uwlData.dualTrend[uwlData.dualTrend.length-1].Consecutive}%` : "—"} />
+            <StatCard label="Early detection" value={uwlData.dualTrend[uwlData.dualTrend.length-1]?.Consecutive > uwlData.dualTrend[uwlData.dualTrend.length-1]?.Significant ? "Working" : "Monitor"} sub="Consecutive > Significant = good" />
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={uwlData.dualTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+              <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" unit="%" />
+              <Tooltip formatter={(v) => `${v}%`} />
+              <Line type="monotone" dataKey="Significant" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: "#dc2626" }} />
+              <Line type="monotone" dataKey="Consecutive" stroke="#f97316" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: "#f97316" }} />
+              <Legend />
+            </LineChart>
+          </ResponsiveContainer>
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 4: Falls & Major Injury ── */}
+      <div id="panel-qi-falls" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 4</span><h3 className="text-base font-semibold text-gray-900">Falls — Rate & Severity Ratio</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Are falls becoming more severe even if the rate is stable?</p>
+        {fallsData.fallsTrend.length > 0 ? (<>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <StatCard label="Any fall rate" value={getInd("falls")?.currentRate != null ? `${getInd("falls").currentRate}%` : "—"} />
+            <StatCard label="Major injury" value={fallsData.fallsTrend[fallsData.fallsTrend.length-1]?.["Major injury"] != null ? `${fallsData.fallsTrend[fallsData.fallsTrend.length-1]["Major injury"]}%` : "—"} />
+            <StatCard label="Severity ratio" value={fallsData.fallsTrend[fallsData.fallsTrend.length-1]?.["Severity ratio"] != null ? `${fallsData.fallsTrend[fallsData.fallsTrend.length-1]["Severity ratio"]}%` : "—"} sub="% of falls = major" danger={fallsData.fallsTrend[fallsData.fallsTrend.length-1]?.["Severity ratio"] > 25} />
+            <StatCard label="Trend" value={getInd("falls")?.trendArrow === "up" ? "▲ Worsening" : getInd("falls")?.trendArrow === "down" ? "▼ Improving" : "— Stable"} />
+          </div>
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={fallsData.fallsTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+              <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" unit="%" />
+              <Tooltip formatter={(v) => `${v}%`} />
+              <Line type="monotone" dataKey="Any fall" stroke="#f97316" strokeWidth={2} dot={{ r: 3, fill: "#f97316" }} />
+              <Line type="monotone" dataKey="Major injury" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: "#dc2626" }} />
+              <Line type="monotone" dataKey="Severity ratio" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: "#8b5cf6" }} />
+              <Legend />
+            </LineChart>
+          </ResponsiveContainer>
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 5: Medications ── */}
+      <div id="panel-qi-meds" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 5</span><h3 className="text-base font-semibold text-gray-900">Medications — Polypharmacy & Antipsychotic Use</h3></div>
+        <p className="text-sm text-gray-500 mb-4">How many antipsychotic prescriptions lack a diagnosis? <span className="text-red-600 font-medium">"Without Dx"</span> = regulatory red flag.</p>
+        {medData.polyTrend.length > 0 || medData.apBreakdown.length > 0 ? (<>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <StatCard label="Polypharmacy" value={getInd("meds")?.currentRate != null ? `${getInd("meds").currentRate}%` : "—"} />
+            <StatCard label="AP rate" value={medData.apBreakdown.length > 0 ? `${Number(((medData.apBreakdown[medData.apBreakdown.length-1]["With Dx"] + medData.apBreakdown[medData.apBreakdown.length-1]["Without Dx"]) / (medData.apBreakdown[medData.apBreakdown.length-1]["No AP"] + medData.apBreakdown[medData.apBreakdown.length-1]["With Dx"] + medData.apBreakdown[medData.apBreakdown.length-1]["Without Dx"]) * 100).toFixed(1))}%` : "—"} />
+            <StatCard label="Without Dx" value={medData.apBreakdown.length > 0 ? medData.apBreakdown[medData.apBreakdown.length-1]["Without Dx"] : "—"} danger />
+            <StatCard label="Without Dx %" value={medData.apBreakdown.length > 0 ? (() => { const last = medData.apBreakdown[medData.apBreakdown.length-1]; const allAP = last["With Dx"] + last["Without Dx"]; return allAP > 0 ? `${Number((last["Without Dx"] / allAP * 100).toFixed(1))}%` : "0%"; })() : "—"} danger />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {medData.polyTrend.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Polypharmacy Rate (%)</h4>
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={medData.polyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" unit="%" />
+                    <Tooltip formatter={(v) => `${v}%`} />
+                    <Line type="monotone" dataKey="rate" stroke="#f97316" strokeWidth={2} dot={{ r: 3, fill: "#f97316" }} name="Polypharmacy %" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {medData.apBreakdown.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Antipsychotic Prescribing</h4>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={medData.apBreakdown} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" label={{ value: "Residents", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "#9ca3af" } }} />
+                    <Tooltip />
+                    {Object.entries(AP_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="ap" fill={color} name={key} />))}
+                    <Legend />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+          {medDistribution.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Medication Count Distribution</h4>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={medDistribution} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" label={{ value: "Residents", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "#9ca3af" } }} />
+                  <Tooltip />
+                  {Object.entries(MED_RANGE_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="med" fill={color} name={`${key} meds`} />))}
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 6: Activities of Daily Living ── */}
+      <div id="panel-qi-adl" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 6</span><h3 className="text-base font-semibold text-gray-900">Activities of Daily Living — Barthel Domain Profile</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Which functional domains are weakest, and is decline concentrated?</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <StatCard label="ADL decline rate" value={getInd("adl")?.currentRate != null ? `${getInd("adl").currentRate}%` : "—"} />
+          <StatCard label="Trend" value={getInd("adl")?.trendArrow === "up" ? "▲ Worsening" : getInd("adl")?.trendArrow === "down" ? "▼ Improving" : "— Stable"} />
+        </div>
+        {adlData.hasSubScores ? (
+          <ResponsiveContainer width="100%" height={360}>
+            <RadarChart data={adlData.radarData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
+              <PolarGrid stroke="#e5e7eb" />
+              <PolarAngleAxis dataKey="domain" tick={{ fontSize: 10 }} />
+              <PolarRadiusAxis angle={90} domain={[0, 3]} tick={{ fontSize: 9 }} />
+              <Radar name="Latest" dataKey="latest" stroke="#f97316" fill="#f97316" fillOpacity={0.35} strokeWidth={2} />
+              <Radar name="Earliest" dataKey="earliest" stroke="#9ca3af" fill="none" fillOpacity={0} strokeWidth={2} strokeDasharray="5 3" />
+              <Legend /><Tooltip />
+            </RadarChart>
+          </ResponsiveContainer>
+        ) : <GpmsPlaceholder msg="Upload CSV with Barthel sub-scores (ADL_BOWEL..ADL_BATHING) for domain breakdown." />}
+        {adlChange.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">ADL Score Movement</h4>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={adlChange} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" label={{ value: "Residents", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "#9ca3af" } }} />
+                <Tooltip />
+                {Object.entries(ADL_CHANGE_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="adl" fill={color} name={key} />))}
+                <Legend />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* ── QI 7: Incontinence Care ── */}
+      <div id="panel-qi-ic" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 7</span><h3 className="text-base font-semibold text-gray-900">Incontinence Care — IAD Severity Distribution</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Is IAD severity shifting toward Cat 2 (worse) even if overall rate is stable?</p>
+        {icData.iadSeverity.length > 0 ? (<>
+          {(() => { const last = icData.iadSeverity[icData.iadSeverity.length-1]; const severe = (last["Cat 2A"] || 0) + (last["Cat 2B"] || 0); const iadAny = last._iadAny || 0; return (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <StatCard label="IAD rate" value={getInd("incontinence")?.currentRate != null ? `${getInd("incontinence").currentRate}%` : "—"} />
+              <StatCard label="Severe (2A+2B)" value={severe} sub="latest quarter" />
+              <StatCard label="Severe %" value={iadAny > 0 ? `${Number((severe / iadAny * 100).toFixed(1))}%` : "—"} danger={iadAny > 0 && severe / iadAny > 0.3} />
+            </div>
+          ); })()}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Severity Distribution</p>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={icData.iadSeverity} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" label={{ value: "Residents", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "#9ca3af" } }} />
+                  <Tooltip />
+                  {Object.entries(IAD_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="iad" fill={color} name={key} />))}
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {icSevereTrend.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Severe IAD Proportion (Cat 2A + 2B)</p>
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart data={icSevereTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" unit="%" />
+                    <Tooltip formatter={(v) => `${v}%`} />
+                    <ReferenceLine y={30} stroke="#dc2626" strokeDasharray="6 3" label={{ value: "30% threshold", position: "right", fontSize: 10, fill: "#dc2626" }} />
+                    <Line type="monotone" dataKey="severePct" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: "#dc2626" }} name="Severe IAD %" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 8: Hospitalisation ── */}
+      <div id="panel-qi-hosp" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 8</span><h3 className="text-base font-semibold text-gray-900">Hospitalisation — ED vs All Admissions</h3></div>
+        <p className="text-sm text-gray-500 mb-4">What fraction of hospitalisations are ED presentations? Is this diverging?</p>
+        {hospData.dualTrend.length > 0 ? (<>
+          {(() => { const last = hospData.dualTrend[hospData.dualTrend.length-1]; const edPct = last["All hosp"] > 0 ? Number((last["ED presentations"] / last["All hosp"] * 100).toFixed(1)) : 0; return (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <StatCard label="All hosp rate" value={getInd("hosp")?.currentRate != null ? `${getInd("hosp").currentRate}%` : "—"} />
+              <StatCard label="ED rate" value={`${last["ED presentations"]}%`} />
+              <StatCard label="ED / All hosp" value={`${edPct}%`} sub="proportion via ED" />
+            </div>
+          ); })()}
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={hospData.dualTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+              <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" unit="%" />
+              <Tooltip formatter={(v) => `${v}%`} />
+              <Line type="monotone" dataKey="All hosp" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: "#2563eb" }} />
+              <Line type="monotone" dataKey="ED presentations" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: "#dc2626" }} />
+              <Legend />
+            </LineChart>
+          </ResponsiveContainer>
+          {hospEDRatio.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">ED Proportion of All Hospitalisations</h4>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={hospEDRatio} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" unit="%" />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Line type="monotone" dataKey="ratio" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3, fill: "#8b5cf6" }} name="ED / All hosp %" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 9: Workforce ── */}
+      <div id="panel-qi-wf" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 9</span><h3 className="text-base font-semibold text-gray-900">Workforce Adequacy</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Are we meeting workforce adequacy targets?</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <StatCard label="WF adequacy" value={wfPanel.current != null ? `${wfPanel.current}%` : "—"} />
+          <StatCard label="Gap to 90%" value={wfPanel.gap != null ? `${wfPanel.gap > 0 ? wfPanel.gap : 0}pp` : "—"} danger={wfPanel.gap > 0} />
+        </div>
+        <SingleTrendChart panelData={wfPanel} color="#2563eb" />
+      </div>
+
+      {/* ── QI 10: Consumer Experience ── */}
+      <div id="panel-qi-cx" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 10</span><h3 className="text-base font-semibold text-gray-900">Consumer Experience — Score Distributions</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Is satisfaction broadly improving, or concentrated in a few high-scorers?</p>
+        {cxData.bands.length > 0 ? (<>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <StatCard label="Avg CE score" value={getInd("consumer_exp")?.currentRate != null ? `${getInd("consumer_exp").currentRate}/24` : "—"} />
+            <StatCard label="Positive sentiment" value={cxData.positivePct != null ? `${cxData.positivePct}%` : "—"} sub="Excellent + Good" />
+            <StatCard label="Trend" value={getInd("consumer_exp")?.trendArrow === "down" ? "▲ Improving" : getInd("consumer_exp")?.trendArrow === "up" ? "▼ Declining" : "— Stable"} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Score Band Distribution</p>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={cxData.bands} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                  <Tooltip />
+                  {Object.entries(CX_QOL_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="cx" fill={color} name={key} />))}
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {cxPositiveTrend.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Positive Sentiment Trend (Excellent + Good)</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={cxPositiveTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" unit="%" />
+                    <Tooltip formatter={(v) => `${v}%`} />
+                    <Line type="monotone" dataKey="positivePct" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: "#16a34a" }} name="Positive %" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 11: Quality of Life ── */}
+      <div id="panel-qi-qol" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 11</span><h3 className="text-base font-semibold text-gray-900">Quality of Life — Score Distributions</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Is QoL improving across the board or just for some residents?</p>
+        {qolData.bands.length > 0 ? (<>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <StatCard label="Avg QoL score" value={getInd("qol")?.currentRate != null ? `${getInd("qol").currentRate}/24` : "—"} />
+            <StatCard label="Positive sentiment" value={qolData.positivePct != null ? `${qolData.positivePct}%` : "—"} sub="Excellent + Good" />
+            <StatCard label="Trend" value={getInd("qol")?.trendArrow === "down" ? "▲ Improving" : getInd("qol")?.trendArrow === "up" ? "▼ Declining" : "— Stable"} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Score Band Distribution</p>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={qolData.bands} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                  <Tooltip />
+                  {Object.entries(CX_QOL_COLORS).map(([key, color]) => (<Bar key={key} dataKey={key} stackId="qol" fill={color} name={key} />))}
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {qolPositiveTrend.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Positive Sentiment Trend (Excellent + Good)</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={qolPositiveTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="quarter" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" unit="%" />
+                    <Tooltip formatter={(v) => `${v}%`} />
+                    <Line type="monotone" dataKey="positivePct" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: "#16a34a" }} name="Positive %" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 12: Enrolled Nursing ── */}
+      <div id="panel-qi-en" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 12</span><h3 className="text-base font-semibold text-gray-900">Enrolled Nursing — Direct Care</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Is enrolled nursing direct care meeting the target?</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <StatCard label="EN direct care" value={enPanel.current != null ? `${enPanel.current}%` : "—"} />
+          <StatCard label="Gap to 90%" value={enPanel.gap != null ? `${enPanel.gap > 0 ? enPanel.gap : 0}pp` : "—"} danger={enPanel.gap > 0} />
+        </div>
+        <SingleTrendChart panelData={enPanel} color="#8b5cf6" />
+      </div>
+
+      {/* ── QI 13: Allied Health ── */}
+      <div id="panel-qi-ah" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 13</span><h3 className="text-base font-semibold text-gray-900">Allied Health — Discipline Gap Analysis</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Which disciplines are under-served, and is the gap closing over time?</p>
+        {ahData.disciplines.length > 0 && ahData.disciplines.some(d => d.received > 0) ? (<>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <StatCard label="AH gap rate" value={ahData.gapRate != null ? `${ahData.gapRate.toFixed(1)}%` : "—"} />
+            <StatCard label="Total assessed" value={ahData.total || "—"} sub="latest quarter" />
+            <StatCard label="Most under-served" value={(() => { const sorted = [...ahData.disciplines].sort((a, b) => a.received - b.received); return sorted[0]?.received === 0 ? sorted[0]?.name : sorted[0]?.name; })()} sub={`${[...ahData.disciplines].sort((a, b) => a.received - b.received)[0]?.received || 0} received`} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">{ahData.gapData ? "Recommended vs Received (Latest)" : "Discipline Breakdown (Latest)"}</h4>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={ahData.gapData || ahData.disciplines} layout="vertical" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" width={95} />
+                  <Tooltip />
+                  {ahData.gapData ? (<>
+                    <Bar dataKey="Recommended" fill="#93c5fd" name="Recommended" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="Received" fill="#2563eb" name="Received" radius={[0, 4, 4, 0]} />
+                  </>) : (
+                    <Bar dataKey="received" fill="#2563eb" name="Received" radius={[0, 4, 4, 0]} />
+                  )}
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {ahData.timeSeries.length > 1 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Disciplines Over Time</h4>
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={ahData.timeSeries} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="quarter" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                    <Tooltip />
+                    {["Physiotherapy","Occupational Therapy","Speech Pathology","Podiatry"].map((d, i) => (
+                      <Bar key={d} dataKey={d} fill={["#2563eb","#f97316","#16a34a","#8b5cf6"][i]} name={d} />
+                    ))}
+                    <Legend />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </>) : <GpmsPlaceholder />}
+      </div>
+
+      {/* ── QI 14: Lifestyle Officer ── */}
+      <div id="panel-qi-ls" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5">QI 14</span><h3 className="text-base font-semibold text-gray-900">Lifestyle Officer — Sessions</h3></div>
+        <p className="text-sm text-gray-500 mb-4">Are lifestyle sessions on track?</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <StatCard label="Avg sessions" value={lsPanel.current != null ? lsPanel.current : "—"} />
+          <StatCard label="Trend" value={(() => { const ts = effectiveTrendSeries.find(t => t.id === "ls"); if (!ts || ts.data.length < 2) return "— Stable"; const d = ts.data[ts.data.length-1].value - ts.data[0].value; return Math.abs(d) < 0.5 ? "— Stable" : (ts.lob ? d < 0 : d > 0) ? "▲ Improving" : "▼ Declining"; })()} />
+        </div>
+        <SingleTrendChart panelData={lsPanel} color="#14b8a6" />
+      </div>
     </div>
   );
 
@@ -691,6 +1492,92 @@ export default function QIDashboardPage() {
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-gray-900"><strong>Trend Analysis</strong></h2>
         <p className="text-sm text-gray-500 mt-1">Comprehensive QI trend analysis across {quarters.length} assessment dates</p>
+      </div>
+
+      {/* All Quality Indicators — AIHW-style multi-line trend chart */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">All Quality Indicators — Trend Over Time</h3>
+        <p className="text-sm text-gray-500 mb-4">Prevalence rates across {quarters.length} assessment periods for all 14 QI categories</p>
+        <ResponsiveContainer width="100%" height={960}>
+          <LineChart data={allIndicatorsTrendData} margin={{ top: 20, right: 64, left: 10, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#6b7280" }} stroke="#d1d5db" tickLine={false} axisLine={{ stroke: "#d1d5db" }} dy={8} />
+            <YAxis
+              scale="sqrt"
+              tick={{ fontSize: 11, fill: "#6b7280" }}
+              stroke="#d1d5db"
+              tickLine={false}
+              axisLine={false}
+              unit="%"
+              domain={[0, (dataMax) => Math.ceil(dataMax / 10) * 10]}
+              ticks={[0, 2, 5, 10, 15, 20, 30, 50, 75, 100]}
+            />
+            <Tooltip
+              formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]}
+              contentStyle={{ fontSize: 12, maxHeight: 360, overflowY: "auto", borderRadius: 8, border: "1px solid #e5e7eb" }}
+              itemSorter={(item) => -(item.value || 0)}
+            />
+            {effectiveTrendSeries.map((ts, i) => {
+              const color = TREND_COLORS[i % TREND_COLORS.length];
+              const first = ts.data[0]?.value;
+              const last = ts.data[ts.data.length - 1]?.value;
+              const delta = last != null && first != null ? last - first : null;
+              const improving = delta != null && (ts.lob ? delta < 0 : delta > 0);
+              const arrowChar = delta == null ? "–" : Math.abs(delta) < 0.5 ? "–" : improving ? "▼" : "▲";
+              const arrowColor = delta == null || Math.abs(delta) < 0.5 ? "#9ca3af" : improving ? "#16a34a" : "#dc2626";
+              return (
+                <Line
+                  key={ts.id}
+                  type="monotone"
+                  dataKey={ts.name}
+                  stroke={color}
+                  strokeWidth={2}
+                  dot={(dotProps) => {
+                    const { cx, cy, index, value } = dotProps;
+                    const isLast = index === allIndicatorsTrendData.length - 1;
+                    return (
+                      <g key={`dot-${ts.id}-${index}`}>
+                        <circle cx={cx} cy={cy} r={isLast ? 5.5 : 2.5} fill={color} stroke="#fff" strokeWidth={isLast ? 2 : 1} />
+                        {isLast && value != null && (
+                          <text x={cx + 16} y={cy} fontSize={16} dominantBaseline="middle" fontWeight="700" fill={arrowColor}>
+                            {arrowChar}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  }}
+                  activeDot={{ r: 5, fill: color, stroke: "#fff", strokeWidth: 2 }}
+                />
+              );
+            })}
+          </LineChart>
+        </ResponsiveContainer>
+        {/* Legend — structured grid */}
+        <div className="mt-5 border-t border-gray-100 pt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-y-3 gap-x-2">
+            {effectiveTrendSeries.map((ts, i) => {
+              const color = TREND_COLORS[i % TREND_COLORS.length];
+              const first = ts.data[0]?.value;
+              const last = ts.data[ts.data.length - 1]?.value;
+              const delta = last != null && first != null ? last - first : null;
+              const improving = delta != null && (ts.lob ? delta < 0 : delta > 0);
+              const stable = delta == null || Math.abs(delta) < 0.5;
+              return (
+                <div key={ts.id} className="flex items-center gap-2 min-w-0">
+                  <span className="w-5 h-[3px] rounded-full shrink-0" style={{ background: color }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-gray-800 truncate">{ts.name}</div>
+                    <div className={`text-[10px] font-semibold ${stable ? "text-gray-400" : improving ? "text-green-600" : "text-red-600"}`}>
+                      {last != null ? `${Number(last).toFixed(1)}%` : "—"}
+                      {!stable && <> {improving ? "↓" : "↑"} {Math.abs(delta).toFixed(1)}pp</>}
+                      {stable && delta != null && <> — stable</>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Summary table */}
@@ -757,70 +1644,6 @@ export default function QIDashboardPage() {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Two-column: Improving vs Worsening */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div>
-          <h3 className="text-base font-semibold text-green-700 mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500" />Improving Indicators
-          </h3>
-          <div className="space-y-4">
-            {effectiveTrendSeries.filter(ts => { const d = ts.data[ts.data.length - 1].value - ts.data[0].value; return ts.lob ? d < 0 : d > 0; }).map(ts => {
-              const first = ts.data[0].value; const last = ts.data[ts.data.length - 1].value; const delta = last - first;
-              const vals = ts.data.map(d => d.value); const min = Math.min(...vals); const max = Math.max(...vals);
-              return (
-                <div key={ts.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                  <div className="flex items-start justify-between mb-1">
-                    <h4 className="text-sm font-semibold text-gray-800">{ts.name}</h4>
-                    <span className="text-xs font-medium text-green-600">↓ {Math.abs(delta).toFixed(2)}{ts.unit}</span>
-                  </div>
-                  <div className="flex gap-3 text-xs text-gray-500 mb-2">
-                    <span>Min: {min}{ts.unit}</span><span>Max: {max}{ts.unit}</span><span>{ts.lob ? "Lower is better" : "Higher is better"}</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <LineChart data={ts.data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
-                      <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="#d1d5db" />
-                      <YAxis tick={{ fontSize: 9 }} stroke="#d1d5db" width={30} />
-                      <Tooltip contentStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="value" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: "#16a34a" }} name={ts.unit} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div>
-          <h3 className="text-base font-semibold text-red-700 mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-red-500" />Worsening / Stable
-          </h3>
-          <div className="space-y-4">
-            {effectiveTrendSeries.filter(ts => { const d = ts.data[ts.data.length - 1].value - ts.data[0].value; return ts.lob ? d >= 0 : d <= 0; }).map(ts => {
-              const first = ts.data[0].value; const last = ts.data[ts.data.length - 1].value; const delta = last - first;
-              const vals = ts.data.map(d => d.value); const min = Math.min(...vals); const max = Math.max(...vals);
-              return (
-                <div key={ts.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                  <div className="flex items-start justify-between mb-1">
-                    <h4 className="text-sm font-semibold text-gray-800">{ts.name}</h4>
-                    <span className="text-xs font-medium text-red-600">↑ {Math.abs(delta).toFixed(2)}{ts.unit}</span>
-                  </div>
-                  <div className="flex gap-3 text-xs text-gray-500 mb-2">
-                    <span>Min: {min}{ts.unit}</span><span>Max: {max}{ts.unit}</span><span>{ts.lob ? "Lower is better" : "Higher is better"}</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <LineChart data={ts.data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
-                      <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="#d1d5db" />
-                      <YAxis tick={{ fontSize: 9 }} stroke="#d1d5db" width={30} />
-                      <Tooltip contentStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="value" stroke="#d85a30" strokeWidth={2} dot={{ r: 3, fill: "#d85a30" }} name={ts.unit} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* All trends grid */}

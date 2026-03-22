@@ -5,6 +5,7 @@ import { getCurrentUser } from "../../services/api";
 const NAV_ITEMS = [
   { name: "Dashboard", path: "/dashboard" },
   { name: "Data Entry", path: "/upload-csv" },
+  { name: "Voice Screening", path: "/voice/dashboard" },
   { name: "Reports", path: "/reports" },
   { name: "Benchmarking", path: "/benchmarking" },
 ];
