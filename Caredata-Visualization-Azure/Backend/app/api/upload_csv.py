@@ -454,6 +454,10 @@ def _compute_gpms_fields(content: bytes) -> dict[str, dict[str, Any]]:
         # QI 2 — Restrictive practices
         entry["rp_total"] = n
         entry["rp_any"] = _sum_bin(rq, "RP_01")
+        entry["rp_mech"] = _sum_bin(rq, "RP_MECH")
+        entry["rp_phys"] = _sum_bin(rq, "RP_PHYS")
+        entry["rp_env"] = _sum_bin(rq, "RP_ENV")
+        entry["rp_sec"] = _sum_bin(rq, "RP_SECLUSION")
 
         # QI 3 — Unplanned weight loss
         entry["uwl_total_sig"] = n
@@ -475,10 +479,49 @@ def _compute_gpms_fields(content: bytes) -> dict[str, dict[str, Any]]:
         ap_without = _sum_ternary_eq(rq, "MED_AP", 2)
         entry["ap_any"] = (ap_with or 0) + (ap_without or 0) if ap_with is not None else None
         entry["ap_with_dx"] = ap_with
+        # Medication count distribution buckets (for histogram)
+        _num_med_col = _find_col(fieldnames, "NUM_MEDICATIONS")
+        if _num_med_col:
+            _buckets = [0, 0, 0, 0]  # 0-3, 4-6, 7-9, 10+
+            for r in rq:
+                _v = _safe_int(r, _num_med_col)
+                if _v <= 3: _buckets[0] += 1
+                elif _v <= 6: _buckets[1] += 1
+                elif _v <= 9: _buckets[2] += 1
+                else: _buckets[3] += 1
+            entry["med_range_0_3"] = _buckets[0]
+            entry["med_range_4_6"] = _buckets[1]
+            entry["med_range_7_9"] = _buckets[2]
+            entry["med_range_10plus"] = _buckets[3]
 
         # QI 6 — ADL
         entry["adl_total"] = n
         entry["adl_decline"] = _sum_bin(rq, "ADL_01")
+        # Barthel sub-domain averages (0-3 scale each)
+        for _domain_key, _col_name in [
+            ("adl_bowel", "ADL_BOWEL"), ("adl_bladder", "ADL_BLADDER"),
+            ("adl_grooming", "ADL_GROOMING"), ("adl_toilet", "ADL_TOILET"),
+            ("adl_feeding", "ADL_FEEDING"), ("adl_transfer", "ADL_TRANSFER"),
+            ("adl_mobility", "ADL_MOBILITY"), ("adl_dressing", "ADL_DRESSING"),
+            ("adl_stairs", "ADL_STAIRS"), ("adl_bathing", "ADL_BATHING"),
+        ]:
+            _c = _find_col(fieldnames, _col_name)
+            if _c:
+                _vals = [_safe_float(r, _c) for r in rq]
+                entry[_domain_key] = round(sum(_vals) / len(_vals), 2) if _vals else None
+        # ADL score change distribution (improved / stable / declined)
+        _prev_col = _find_col(fieldnames, "ADL_PREV_SCORE")
+        _curr_col = _find_col(fieldnames, "ADL_CURR_SCORE")
+        if _prev_col and _curr_col:
+            _improved = _stable = _declined = 0
+            for r in rq:
+                _p, _c2 = _safe_float(r, _prev_col), _safe_float(r, _curr_col)
+                if _c2 > _p: _improved += 1
+                elif _c2 < _p: _declined += 1
+                else: _stable += 1
+            entry["adl_improved"] = _improved
+            entry["adl_stable"] = _stable
+            entry["adl_declined"] = _declined
 
         # QI 7 — Incontinence
         entry["ic_total"] = n
@@ -516,6 +559,14 @@ def _compute_gpms_fields(content: bytes) -> dict[str, dict[str, Any]]:
         entry["ah_rcv_diet"] = _sum_bin(rq, "AH_RCVD_DIET")
         entry["ah_rcv_assist"] = _sum_bin(rq, "AH_RCVD_ASSIST")
         entry["ah_rcv_other"] = _sum_bin(rq, "AH_RCVD_OTHER")
+        # AH recommended per discipline (for gap analysis)
+        entry["ah_rcmd_physio"] = _sum_bin(rq, "AH_RCMD_PHYSIO")
+        entry["ah_rcmd_ot"]     = _sum_bin(rq, "AH_RCMD_OT")
+        entry["ah_rcmd_speech"] = _sum_bin(rq, "AH_RCMD_SPEECH")
+        entry["ah_rcmd_pod"]    = _sum_bin(rq, "AH_RCMD_POD")
+        entry["ah_rcmd_diet"]   = _sum_bin(rq, "AH_RCMD_DIET")
+        entry["ah_rcmd_other"]  = _sum_bin(rq, "AH_RCMD_OTHER")
+        entry["ah_rcmd_assist"] = _sum_bin(rq, "AH_RCMD_ASSIST")
 
         # Strip None values
         result[date_str] = {k: v for k, v in entry.items() if v is not None}
