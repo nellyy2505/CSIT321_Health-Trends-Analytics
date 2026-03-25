@@ -8,7 +8,8 @@
  *   1. Validate link token
  *   2. If no account → registration form (name + 4-char password)
  *   3. If has account → login (password only)
- *   4. After auth → show recording interface with prompt
+ *   4. Consent screen (first time only)
+ *   5. After auth + consent → show recording interface with prompt
  */
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
@@ -18,12 +19,14 @@ import {
   loginResident,
   uploadRecording,
   getRandomPrompt,
+  getConsent,
+  updateConsent,
 } from "../services/voiceApi";
 import RecordingWidget from "../components/voice/RecordingWidget";
 
 export default function VoiceRecordPage() {
   const { token } = useParams();
-  const [step, setStep] = useState("loading"); // loading | invalid | register | login | record
+  const [step, setStep] = useState("loading"); // loading | invalid | register | login | consent | record
   const [linkData, setLinkData] = useState(null);
   const [error, setError] = useState("");
   const [prompt, setPrompt] = useState(null);
@@ -70,6 +73,21 @@ export default function VoiceRecordPage() {
     }
   }, [step, prompt]);
 
+  // After successful auth, check consent
+  const proceedAfterAuth = useCallback(async () => {
+    try {
+      const { consent_status } = await getConsent();
+      if (consent_status === "active") {
+        setStep("record");
+      } else {
+        setStep("consent");
+      }
+    } catch {
+      // If consent check fails, show consent screen to be safe
+      setStep("consent");
+    }
+  }, []);
+
   const handleRegister = useCallback(
     async (e) => {
       e.preventDefault();
@@ -86,7 +104,7 @@ export default function VoiceRecordPage() {
       try {
         const result = await registerResident(token, displayName.trim(), password);
         localStorage.setItem("resident_token", result.access_token);
-        setStep("record");
+        setStep("consent"); // New registrations always need consent
       } catch (err) {
         const msg = err.response?.data?.detail || "Registration failed. Please try again.";
         setError(typeof msg === "string" ? msg : JSON.stringify(msg));
@@ -109,7 +127,7 @@ export default function VoiceRecordPage() {
       try {
         const result = await loginResident(linkData.resident_id, password);
         localStorage.setItem("resident_token", result.access_token);
-        setStep("record");
+        await proceedAfterAuth();
       } catch (err) {
         const msg = err.response?.data?.detail || "Login failed. Please check your password.";
         setError(typeof msg === "string" ? msg : JSON.stringify(msg));
@@ -117,8 +135,20 @@ export default function VoiceRecordPage() {
         setSubmitting(false);
       }
     },
-    [linkData, password]
+    [linkData, password, proceedAfterAuth]
   );
+
+  const handleConsent = useCallback(async () => {
+    setSubmitting(true);
+    try {
+      await updateConsent(true);
+      setStep("record");
+    } catch {
+      setError("Failed to save consent. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, []);
 
   const handleUpload = useCallback(async (wavBlob) => {
     const file = new File([wavBlob], "recording.wav", { type: "audio/wav" });
@@ -248,6 +278,52 @@ export default function VoiceRecordPage() {
             {submitting ? "Logging in..." : "Continue"}
           </button>
         </form>
+      )}
+
+      {/* Consent screen */}
+      {step === "consent" && (
+        <div className="w-full max-w-lg space-y-6">
+          <div className="text-center mb-4">
+            <h2 className="text-3xl font-semibold text-gray-900">Consent for Voice Recording</h2>
+          </div>
+
+          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6 space-y-4 text-lg text-gray-700">
+            <p>
+              <strong>What is recorded:</strong> A short voice sample (30–60 seconds) of you speaking aloud.
+            </p>
+            <p>
+              <strong>How it is used:</strong> Your recording is analysed by computer to check for changes
+              in your speech patterns that may indicate health changes.
+            </p>
+            <p>
+              <strong>Who can see results:</strong> Your nurse and care team can view the analysis results.
+              They <strong>cannot</strong> listen to your recording.
+            </p>
+            <p>
+              <strong>Your rights:</strong> You own your recordings. You can listen to, download, or delete
+              them at any time. You can withdraw consent at any time.
+            </p>
+            <p>
+              <strong>Storage:</strong> Recordings are stored securely and encrypted. Analysis results are
+              kept even if you delete the recording.
+            </p>
+          </div>
+
+          {error && <p className="text-lg text-red-600">{error}</p>}
+
+          <button
+            onClick={handleConsent}
+            disabled={submitting}
+            className="w-full py-5 bg-primary text-white text-2xl font-semibold rounded-xl
+                       hover:bg-orange-600 transition-colors disabled:opacity-50"
+          >
+            {submitting ? "Saving..." : "I Agree — Continue"}
+          </button>
+
+          <p className="text-center text-gray-400 text-base">
+            You can withdraw consent at any time through your recording portal.
+          </p>
+        </div>
       )}
 
       {/* Recording interface */}

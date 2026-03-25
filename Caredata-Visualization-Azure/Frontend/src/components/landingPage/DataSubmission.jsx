@@ -48,27 +48,26 @@ export default function DataSubmission() {
           custom={0.3}
         >
           <h3 className="text-sm font-semibold text-orange-500 tracking-wider uppercase mb-2">
-            Submission
+            QI Reporting
           </h3>
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Data Submission
+            Quarterly QI Reports
           </h2>
           <p
             className="text-gray-600 leading-relaxed mb-8 text-justify"
             style={{ hyphens: "auto" }}
           >
-            Automatically submit your facility’s data directly to government
-            systems with just a few clicks. Our platform eliminates repetitive
-            administrative tasks, minimizes the risk of submission errors, and
-            keeps your reports consistently up to date. Ensure timely, accurate
-            reporting while freeing your team to focus on quality care instead
-            of paperwork.
+            Generate audit-ready Quality Indicator reports formatted for
+            Department of Health and Aged Care submissions, board papers, and
+            Quality &amp; Safety Commission audits. Trend analysis across quarters
+            highlights improvement areas, while severity breakdowns and risk
+            flags ensure nothing is missed before submission deadlines.
           </p>
           <button
-            onClick={() => navigate("/mydata")}
+            onClick={() => navigate("/dashboard")}
             className="bg-primary text-white px-6 py-3 rounded-md font-medium hover:bg-orange-600 transition-all shadow-md"
           >
-            More Information
+            View Dashboard
           </button>
         </motion.div>
       </div>

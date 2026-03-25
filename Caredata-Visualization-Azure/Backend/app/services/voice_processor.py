@@ -114,6 +114,53 @@ def extract_acoustic_features(wav_bytes: bytes) -> dict:
     else:
         vocal_fatigue_index = 1.0
 
+    # ---------------------------------------------------------------
+    # Phase 2: Enhanced features — pitch, jitter, shimmer, ZCR, spectral
+    # All computed with pure Python (no librosa needed)
+    # ---------------------------------------------------------------
+
+    # Zero-crossing rate (speech frames only)
+    speech_samples = []
+    for i, is_speech in enumerate(labels):
+        if is_speech:
+            start = i * frame_size
+            end = min(start + frame_size, len(samples))
+            speech_samples.extend(samples[start:end])
+
+    zcr_mean = 0.0
+    if len(speech_samples) > 1:
+        crossings = sum(
+            1 for j in range(1, len(speech_samples))
+            if (speech_samples[j - 1] >= 0) != (speech_samples[j] >= 0)
+        )
+        zcr_mean = round(crossings / len(speech_samples) * framerate, 2)
+
+    # Pitch estimation via autocorrelation (fundamental frequency F0)
+    pitch_values = _estimate_pitch_frames(speech_samples, framerate)
+    pitch_mean = round(sum(pitch_values) / len(pitch_values), 1) if pitch_values else 0.0
+    pitch_std = round(_std(pitch_values), 1) if len(pitch_values) > 1 else 0.0
+
+    # Jitter (pitch period variability) — cycle-to-cycle F0 variation
+    jitter_pct = 0.0
+    if len(pitch_values) > 1:
+        periods = [1.0 / f for f in pitch_values if f > 0]
+        if len(periods) > 1:
+            diffs = [abs(periods[j] - periods[j - 1]) for j in range(1, len(periods))]
+            mean_period = sum(periods) / len(periods)
+            if mean_period > 0:
+                jitter_pct = round(100.0 * (sum(diffs) / len(diffs)) / mean_period, 3)
+
+    # Shimmer (amplitude variability between consecutive frames)
+    shimmer_pct = 0.0
+    if len(speech_energies) > 1:
+        amp_diffs = [abs(speech_energies[j] - speech_energies[j - 1]) for j in range(1, len(speech_energies))]
+        mean_amp = sum(speech_energies) / len(speech_energies)
+        if mean_amp > 0:
+            shimmer_pct = round(100.0 * (sum(amp_diffs) / len(amp_diffs)) / mean_amp, 3)
+
+    # Spectral centroid approximation (energy-weighted frequency center)
+    spectral_centroid = _spectral_centroid(speech_samples, framerate) if len(speech_samples) > 256 else 0.0
+
     return {
         "duration_s": round(duration_s, 2),
         "speech_duration_s": round(speech_duration_s, 2),
@@ -124,6 +171,13 @@ def extract_acoustic_features(wav_bytes: bytes) -> dict:
         "mean_energy": round(mean_energy, 2),
         "energy_std": round(energy_std, 2),
         "vocal_fatigue_index": round(vocal_fatigue_index, 3),
+        # Phase 2 features
+        "pitch_mean_hz": pitch_mean,
+        "pitch_std_hz": pitch_std,
+        "jitter_pct": jitter_pct,
+        "shimmer_pct": shimmer_pct,
+        "zcr_mean": zcr_mean,
+        "spectral_centroid_hz": round(spectral_centroid, 1),
     }
 
 
@@ -131,23 +185,30 @@ def compare_to_baseline(current: dict, baseline: dict) -> dict:
     """
     Compare current analysis features to baseline.
 
-    Returns dict with:
-        speech_rate_change_pct, pause_duration_change_pct,
-        energy_change_pct, overall_deviation_pct, alert_level
+    Returns dict with percentage changes and alert level.
     """
-    sr_curr = current.get("speech_rate_proxy", 0)
-    sr_base = baseline.get("speech_rate_proxy", 0)
-    pd_curr = current.get("mean_pause_duration_s", 0)
-    pd_base = baseline.get("mean_pause_duration_s", 0)
-    en_curr = current.get("mean_energy", 0)
-    en_base = baseline.get("mean_energy", 0)
+    changes = {}
+    keys = [
+        ("speech_rate_proxy", "speech_rate_change_pct"),
+        ("mean_pause_duration_s", "pause_duration_change_pct"),
+        ("mean_energy", "energy_change_pct"),
+        ("pitch_mean_hz", "pitch_change_pct"),
+        ("jitter_pct", "jitter_change_pct"),
+        ("shimmer_pct", "shimmer_change_pct"),
+    ]
+    for feat_key, change_key in keys:
+        curr = current.get(feat_key, 0)
+        base = baseline.get(feat_key, 0)
+        changes[change_key] = round(_pct_change(base, curr), 1)
 
-    sr_change = _pct_change(sr_base, sr_curr)
-    pd_change = _pct_change(pd_base, pd_curr)
-    en_change = _pct_change(en_base, en_curr)
-
-    # Overall deviation: max of absolute changes
-    overall = max(abs(sr_change), abs(pd_change), abs(en_change))
+    # Overall deviation: max of absolute changes across primary features
+    primary = [abs(changes["speech_rate_change_pct"]),
+               abs(changes["pause_duration_change_pct"]),
+               abs(changes["energy_change_pct"])]
+    # Also factor in pitch changes (weighted lower)
+    if changes.get("pitch_change_pct"):
+        primary.append(abs(changes["pitch_change_pct"]) * 0.7)
+    overall = max(primary) if primary else 0.0
 
     # Alert level
     if overall > 30:
@@ -157,13 +218,9 @@ def compare_to_baseline(current: dict, baseline: dict) -> dict:
     else:
         alert_level = "green"
 
-    return {
-        "speech_rate_change_pct": round(sr_change, 1),
-        "pause_duration_change_pct": round(pd_change, 1),
-        "energy_change_pct": round(en_change, 1),
-        "overall_deviation_pct": round(overall, 1),
-        "alert_level": alert_level,
-    }
+    changes["overall_deviation_pct"] = round(overall, 1)
+    changes["alert_level"] = alert_level
+    return changes
 
 
 def determine_confidence(recording_count: int) -> str:
@@ -175,8 +232,8 @@ def determine_confidence(recording_count: int) -> str:
     return "low"
 
 
-def generate_narrative(features: dict, risk_scores: dict | None = None) -> str:
-    """Generate a template-based clinical narrative from features and risk scores."""
+def generate_narrative(features: dict, risk_scores: dict | None = None, transcript: str | None = None) -> str:
+    """Generate a template-based clinical narrative from features, risk scores, and optional transcript."""
     lines = []
 
     duration = features.get("duration_s", 0)
@@ -185,6 +242,9 @@ def generate_narrative(features: dict, risk_scores: dict | None = None) -> str:
     pauses = features.get("pause_count", 0)
     mean_pause = features.get("mean_pause_duration_s", 0)
     fatigue = features.get("vocal_fatigue_index", 1.0)
+    pitch = features.get("pitch_mean_hz", 0)
+    jitter = features.get("jitter_pct", 0)
+    shimmer = features.get("shimmer_pct", 0)
 
     lines.append(
         f"Recording duration: {duration}s. "
@@ -194,20 +254,35 @@ def generate_narrative(features: dict, risk_scores: dict | None = None) -> str:
         f"{pauses} pause(s) detected with mean duration {mean_pause:.2f}s."
     )
 
+    # Phase 2 feature commentary
+    if pitch > 0:
+        lines.append(f"Mean pitch: {pitch:.0f} Hz.")
+    if jitter > 3.0:
+        lines.append("Elevated jitter detected, suggesting vocal instability or tremor.")
+    if shimmer > 5.0:
+        lines.append("Elevated shimmer detected, indicating irregular vocal amplitude — possible laryngeal changes.")
+
     if fatigue < 0.7:
         lines.append(
             "Vocal fatigue detected: energy dropped significantly toward the end of the recording."
         )
 
+    if transcript:
+        word_count = len(transcript.split())
+        lines.append(f"Transcript: {word_count} words captured.")
+
     if risk_scores:
         sr_change = risk_scores.get("speech_rate_change_pct", 0)
         pd_change = risk_scores.get("pause_duration_change_pct", 0)
+        pitch_change = risk_scores.get("pitch_change_pct", 0)
         alert = risk_scores.get("alert_level", "green")
 
         lines.append(
             f"Compared to baseline: speech rate changed by {sr_change:+.1f}%, "
             f"pause duration changed by {pd_change:+.1f}%."
         )
+        if pitch_change and abs(pitch_change) > 10:
+            lines.append(f"Pitch shifted by {pitch_change:+.1f}% from baseline.")
 
         if alert == "red":
             lines.append(
@@ -281,6 +356,71 @@ def _pct_change(baseline: float, current: float) -> float:
     return 100.0 * (current - baseline) / abs(baseline)
 
 
+def _estimate_pitch_frames(samples: list[float], sr: int, frame_ms: int = 40) -> list[float]:
+    """
+    Estimate pitch (F0) per frame using autocorrelation.
+    Returns list of F0 values in Hz for each frame with detectable pitch.
+    Range: 75–500 Hz (covers elderly male/female speech).
+    """
+    frame_size = int(sr * frame_ms / 1000)
+    min_lag = int(sr / 500)  # 500 Hz max pitch
+    max_lag = int(sr / 75)   # 75 Hz min pitch
+    pitches = []
+
+    for start in range(0, len(samples) - frame_size, frame_size):
+        frame = samples[start:start + frame_size]
+        # Skip near-silent frames
+        rms = math.sqrt(sum(s * s for s in frame) / len(frame))
+        if rms < ENERGY_FLOOR:
+            continue
+
+        # Autocorrelation
+        best_lag = 0
+        best_corr = 0.0
+        norm = sum(s * s for s in frame)
+        if norm < 1e-9:
+            continue
+
+        for lag in range(min_lag, min(max_lag, len(frame))):
+            corr = sum(frame[j] * frame[j + lag] for j in range(len(frame) - lag))
+            corr /= norm
+            if corr > best_corr:
+                best_corr = corr
+                best_lag = lag
+
+        if best_lag > 0 and best_corr > 0.3:
+            pitches.append(sr / best_lag)
+
+    return pitches
+
+
+def _spectral_centroid(samples: list[float], sr: int) -> float:
+    """Compute spectral centroid using a simple DFT on the entire speech signal (or a segment)."""
+    # Use at most 4096 samples from the middle for efficiency
+    n = min(4096, len(samples))
+    start = (len(samples) - n) // 2
+    seg = samples[start:start + n]
+
+    # Apply Hann window
+    windowed = [seg[i] * 0.5 * (1 - math.cos(2 * math.pi * i / (n - 1))) for i in range(n)]
+
+    # Real DFT magnitude (first half)
+    half = n // 2
+    magnitudes = []
+    for k in range(half):
+        re = sum(windowed[j] * math.cos(2 * math.pi * k * j / n) for j in range(n))
+        im = sum(windowed[j] * math.sin(2 * math.pi * k * j / n) for j in range(n))
+        magnitudes.append(math.sqrt(re * re + im * im))
+
+    total_mag = sum(magnitudes)
+    if total_mag < 1e-9:
+        return 0.0
+
+    freq_per_bin = sr / n
+    centroid = sum(magnitudes[k] * k * freq_per_bin for k in range(half)) / total_mag
+    return centroid
+
+
 def _empty_features(duration_s: float) -> dict:
     """Return zeroed feature dict for empty/invalid audio."""
     return {
@@ -293,4 +433,10 @@ def _empty_features(duration_s: float) -> dict:
         "mean_energy": 0.0,
         "energy_std": 0.0,
         "vocal_fatigue_index": 1.0,
+        "pitch_mean_hz": 0.0,
+        "pitch_std_hz": 0.0,
+        "jitter_pct": 0.0,
+        "shimmer_pct": 0.0,
+        "zcr_mean": 0.0,
+        "spectral_centroid_hz": 0.0,
     }

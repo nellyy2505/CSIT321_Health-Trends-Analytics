@@ -2,33 +2,33 @@ import { motion } from "framer-motion";
 
 const FEATURES = [
   {
-    name: "One-click CSV upload",
-    desc: "Upload your GPMS quarterly export and all 14 QI indicators populate automatically with validation checks.",
-    icon: "upload",
-  },
-  {
-    name: "National benchmarking",
-    desc: "Compare your facility rates against AIHW published national medians with percentile rankings.",
-    icon: "chart",
-  },
-  {
-    name: "Resident risk flagging",
-    desc: "Automatically identify residents flagged across multiple indicators simultaneously for urgent care review.",
-    icon: "alert",
-  },
-  {
-    name: "8-quarter trend analysis",
-    desc: "See whether your indicators are improving or worsening over time with clear quarter-on-quarter trend charts.",
-    icon: "trend",
-  },
-  {
-    name: "Traffic-light dashboard",
-    desc: "14 QI summary cards with green/amber/red status at a glance. Know where to focus in under 10 seconds.",
+    name: "14-category QI dashboard",
+    desc: "All Quality Indicator categories on a single scrollable dashboard with traffic-light status cards, trend charts, and severity breakdowns.",
     icon: "grid",
   },
   {
+    name: "National benchmarking",
+    desc: "Compare your facility rates against AIHW published national medians with percentile rankings and peer group analysis.",
+    icon: "chart",
+  },
+  {
+    name: "Voice biomarker screening",
+    desc: "AI-powered voice analysis detects early signs of cognitive decline, stroke risk, and depression from 30-second recordings.",
+    icon: "trend",
+  },
+  {
+    name: "One-click data entry",
+    desc: "Upload quarterly QI collection data via CSV with automatic validation against indicator definitions and schema checks.",
+    icon: "upload",
+  },
+  {
+    name: "Clinical risk alerts",
+    desc: "Real-time alerts when residents trigger multiple indicators simultaneously or show significant voice biomarker deviation.",
+    icon: "alert",
+  },
+  {
     name: "Audit-ready reports",
-    desc: "Export QI reports formatted for board papers and Aged Care Quality & Safety Commission audits.",
+    desc: "Generate QI reports formatted for Department of Health submissions, board papers, and Quality & Safety Commission audits.",
     icon: "doc",
   },
 ];

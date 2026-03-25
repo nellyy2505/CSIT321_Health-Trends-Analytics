@@ -43,26 +43,26 @@ export default function UploadDocument() {
           custom={0.3}
         >
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">
-            Your Data
+            Data Entry
           </p>
           <h2 className="text-4xl font-bold text-gray-900 mb-6">
-            Upload Documents
+            One-click QI Data Upload
           </h2>
           <p
             className="text-gray-600 leading-relaxed mb-8 text-justify"
             style={{ hyphens: "auto" }}
           >
-            Upload your CSV files to effortlessly transfer data from your existing aged care
-            system into the government-ready format. Our platform automatically validates and
-            aligns your information with official domain standards, saving hours of manual
-            reformatting and reducing the risk of submission errors. With built-in encryption and
-            strict privacy controls, your data stays secure and fully compliant at every step.
+            Upload your quarterly QI collection data via CSV with automatic validation
+            against indicator definitions and schema checks. The platform maps your
+            facility's data to all 14 QI categories, flags values outside valid ranges,
+            and highlights missing fields before submission. Built-in encryption and
+            strict privacy controls keep resident data secure and fully compliant.
           </p>
           <button
             onClick={() => navigate("/upload-csv")}
             className="bg-primary text-white px-6 py-3 rounded-md font-medium hover:bg-orange-600 transition-all shadow-md"
           >
-            More Information
+            Upload Data
           </button>
         </motion.div>
       </div>

@@ -27,24 +27,25 @@ export default function FormFilling() {
           custom={0.1}
         >
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">
-            Health Scan
+            Voice Biomarkers
           </p>
-          <h2 className="text-4xl font-bold text-gray-900 mb-6">Upload & analyze</h2>
+          <h2 className="text-4xl font-bold text-gray-900 mb-6">Early detection through voice</h2>
           <p
             className="text-gray-600 leading-relaxed mb-8 text-justify"
             style={{ hyphens: "auto" }}
           >
-            Simplify your data entry process with intuitive electronic forms
-            that replace traditional paper records. Our platform streamlines
-            information capture, reduces manual errors, and ensures all data is
-            instantly organized and accessible. Experience greater efficiency,
-            accuracy, and compliance across your aged care reporting workflow.
+            Our AI-powered voice analysis screens residents for early signs of
+            cognitive decline, stroke risk, and depression from short recordings.
+            Carers collect a 30-second sample via a secure link — no specialist
+            equipment needed. The system tracks speech rate, pause patterns, pitch
+            stability, and vocal energy over time, flagging deviations before
+            clinical symptoms become apparent.
           </p>
           <button
-            onClick={() => navigate("/health-scan")}
+            onClick={() => navigate("/voice/dashboard")}
             className="bg-primary text-white px-6 py-3 rounded-md font-medium hover:bg-orange-600 transition-all shadow-md"
           >
-            Try Health Scan
+            Voice Dashboard
           </button>
         </motion.div>
 
