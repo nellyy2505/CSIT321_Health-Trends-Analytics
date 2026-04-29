@@ -1,5 +1,5 @@
 /**
- * Voice Biomarker API service — Phase 2.
+ * Voice Biomarker API service, Phase 2.
  * Nurse endpoints use the shared `api` axios instance (nurse JWT).
  * Resident endpoints use a separate instance with resident_token.
  */

@@ -15,8 +15,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import {
+  CHART_PALETTE, CHART_GRID, CHART_FONT, axisTickStyle as axisTick,
+  tooltipStyle as sharedTooltip,
+} from "../../theme/chartTokens";
 
-const COLORS = ["#ea580c", "#fbbf24", "#d1d5db"];
+const PIE_COLORS = [CHART_PALETTE[0], CHART_PALETTE[1], CHART_PALETTE[2]];
+
+// Local alias kept so existing JSX (`contentStyle={tooltipStyle}`) keeps working.
+const tooltipStyle = sharedTooltip.contentStyle;
 
 export default function DomainDetailsPage() {
   const { id } = useParams();
@@ -49,73 +56,98 @@ export default function DomainDetailsPage() {
     { category: "Workforce", incidents: 6 },
   ];
 
+  const statusColor =
+    completionStatus === "Completed"
+      ? "var(--sage-ink)"
+      : completionStatus === "In Progress"
+      ? "var(--amber)"
+      : "var(--ink-500)";
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar active="My Data" />
 
       <main className="flex flex-grow pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-[1280px] mx-auto gap-6 w-full">
-        {/* Sidebar */}
         <MyDataSidebar activePage="My Data" />
 
-        {/* Main Content */}
-        <div className="flex-1 bg-white rounded-2xl shadow p-8 border border-gray-200">
-          {/* Header with Back Button */}
+        <div className="flex-1 cd-surface p-8">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-                Domain {id}: {domainName}
+              <span className="cd-chip mb-2" style={{ display: "inline-flex" }}>
+                <span className="dot" /> Domain {id}
+              </span>
+              <h1
+                className="mb-1"
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 30,
+                  color: "var(--ink-900)",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {domainName}
               </h1>
-              <p className="text-gray-600">
-                Completion Status:{" "}
-                <span
-                  className={`font-semibold ${
-                    completionStatus === "Completed"
-                      ? "text-green-600"
-                      : completionStatus === "In Progress"
-                      ? "text-yellow-600"
-                      : "text-gray-600"
-                  }`}
-                >
-                  {completionStatus}
-                </span>
+              <p style={{ color: "var(--ink-500)", fontSize: 14 }}>
+                Completion status:{" "}
+                <span style={{ fontWeight: 600, color: statusColor }}>{completionStatus}</span>
               </p>
             </div>
 
-            <button
-              onClick={() => navigate("/mydata")}
-              className="bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-md hover:bg-gray-100 transition"
-            >
+            <button onClick={() => navigate("/mydata")} className="cd-btn cd-btn-ghost">
               ← Back to My Data
             </button>
           </div>
 
-          {/* Conditional Render */}
           {!isCompleted ? (
-            <div className="text-center py-16 bg-gray-50 border border-gray-200 rounded-lg">
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                No Data Available
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Data for{" "}
-                <span className="font-medium text-orange-600">{domainName}</span>{" "}
-                is not available yet. Upload a health record via Health Scan to
-                view analytics and charts.
-              </p>
-              <button
-                onClick={() => navigate("/health-scan")}
-                className="bg-orange-500 text-white px-6 py-2 rounded-md font-medium hover:bg-orange-600 transition"
+            <div
+              className="text-center py-16"
+              style={{
+                background: "var(--bg-paper)",
+                border: "1px solid var(--line-soft)",
+                borderRadius: 12,
+              }}
+            >
+              <h3
+                className="mb-2"
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 22,
+                  color: "var(--ink-900)",
+                  letterSpacing: "-0.01em",
+                }}
               >
+                No data available
+              </h3>
+              <p className="mb-6" style={{ color: "var(--ink-500)", fontSize: 14 }}>
+                Data for{" "}
+                <span style={{ fontWeight: 500, color: "var(--ink-900)" }}>{domainName}</span>{" "}
+                is not available yet. Upload a health record via Health Scan to view analytics and charts.
+              </p>
+              <button onClick={() => navigate("/health-scan")} className="cd-btn cd-btn-primary">
                 Go to Health Scan
               </button>
             </div>
           ) : (
             <>
-              {/* Chart Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                {/* Pie Chart */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                    Task Completion Breakdown
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div
+                  className="p-4"
+                  style={{
+                    background: "var(--bg-paper)",
+                    border: "1px solid var(--line-soft)",
+                    borderRadius: 12,
+                  }}
+                >
+                  <h3
+                    className="mb-3"
+                    style={{
+                      fontFamily: "var(--font-serif)",
+                      fontSize: 18,
+                      color: "var(--ink-900)",
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    Task completion breakdown
                   </h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
@@ -124,54 +156,82 @@ export default function DomainDetailsPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        fill="#8884d8"
                         dataKey="value"
                         label
                       >
                         {completionData.map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
+                            fill={PIE_COLORS[index % PIE_COLORS.length]}
                           />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip contentStyle={tooltipStyle} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Line Chart */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                    Domain Trend (Line)
+                <div
+                  className="p-4"
+                  style={{
+                    background: "var(--bg-paper)",
+                    border: "1px solid var(--line-soft)",
+                    borderRadius: 12,
+                  }}
+                >
+                  <h3
+                    className="mb-3"
+                    style={{
+                      fontFamily: "var(--font-serif)",
+                      fontSize: 18,
+                      color: "var(--ink-900)",
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    Domain trend
                   </h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={domainData}>
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
+                      <XAxis dataKey="month" tick={axisTick} stroke={CHART_GRID} />
+                      <YAxis tick={axisTick} stroke={CHART_GRID} />
+                      <Tooltip contentStyle={tooltipStyle} />
                       <Line
                         type="monotone"
                         dataKey="value"
-                        stroke="#ea580c"
+                        stroke={CHART_PALETTE[0]}
                         strokeWidth={2}
+                        dot={{ r: 3, fill: "var(--sage-ink)" }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* Bar Chart */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                  Incident Categories (Bar)
+              <div
+                className="p-4"
+                style={{
+                  background: "var(--bg-paper)",
+                  border: "1px solid var(--line-soft)",
+                  borderRadius: 12,
+                }}
+              >
+                <h3
+                  className="mb-3"
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize: 18,
+                    color: "var(--ink-900)",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  Incident categories
                 </h3>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={incidentData}>
-                    <XAxis dataKey="category" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="incidents" fill="#f97316" />
+                    <XAxis dataKey="category" tick={axisTick} stroke={CHART_GRID} />
+                    <YAxis tick={axisTick} stroke={CHART_GRID} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="incidents" fill={CHART_PALETTE[1]} radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

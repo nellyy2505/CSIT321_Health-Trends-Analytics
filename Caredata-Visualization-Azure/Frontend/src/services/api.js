@@ -23,7 +23,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url || "";
+    const isAuthEndpoint = url.startsWith("/auth/login") || url.startsWith("/auth/register") || url.startsWith("/auth/google") || url.startsWith("/auth/verify-email") || url.startsWith("/auth/resend");
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       clearAuthAndRedirect();
     }
     return Promise.reject(error);
@@ -37,6 +39,16 @@ export const registerUser = async (userData) => {
 
 export const loginUser = async (credentials) => {
   const response = await api.post("/auth/login", credentials);
+  return response.data;
+};
+
+export const verifyEmail = async (token) => {
+  const response = await api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+  return response.data;
+};
+
+export const resendVerification = async (email) => {
+  const response = await api.post("/auth/resend-verification", { email });
   return response.data;
 };
 
@@ -208,7 +220,7 @@ export const getResidentHistory = async (residentId) => {
 
 // ─── GPMS API ───────────────────────────────────────────────────────────────
 
-/** List all GPMS submission dates (light — no form data). */
+/** List all GPMS submission dates (light, no form data). */
 export const getGPMSList = async () => {
   const response = await api.get("/api/gpms");
   return response.data;

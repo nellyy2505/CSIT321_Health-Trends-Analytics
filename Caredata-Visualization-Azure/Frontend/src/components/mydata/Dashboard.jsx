@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown, Search, Sparkles, ArrowUpFromLine } from "lucide-react";
 import Navbar from "../common/Navbar";
 import Footer from "../common/Footer";
 import MyDataSidebar from "./MyDataSidebar";
@@ -18,8 +19,12 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  CartesianGrid,
+  LabelList,
   ResponsiveContainer,
 } from "recharts";
+
+// ─── Data helpers (preserved from previous impl.) ─────────────────────
 
 function parseNum(s) {
   if (s == null || s === "") return null;
@@ -27,7 +32,6 @@ function parseNum(s) {
   return isNaN(n) ? null : n;
 }
 
-// Never show personal/demographic info in charts — only health data (lab results, vitals, etc.)
 const PERSONAL_LIKE = new Set([
   "age", "year of birth", "date of birth", "dob", "yob", "birth year", "birth date",
   "height", "weight", "bmi", "sex", "gender", "patient name", "name", "birth", "years old",
@@ -43,101 +47,62 @@ function isPersonalInfo(label) {
   return false;
 }
 
-/** Match chart suggestion key to entry (handles truncated names). */
-function keyMatchesSuggestion(fullLabel, suggestion) {
-  if (!suggestion || !fullLabel) return false;
-  const s = String(suggestion).trim().toLowerCase();
-  const l = String(fullLabel).toLowerCase();
-  return l === s || l.startsWith(s) || s.startsWith(l);
-}
-
-/** Filter entries to only those whose fullLabel is in the suggested list. */
-function filterBySuggestions(entries, suggestedKeys) {
-  if (!suggestedKeys || !Array.isArray(suggestedKeys) || suggestedKeys.length === 0) return entries;
-  return entries.filter((e) => suggestedKeys.some((k) => keyMatchesSuggestion(e.fullLabel, k)));
-}
-
-/** Charts use only health data — never personal info (name, age, DOB, year, etc.). */
-function buildChartDataFromMyData(keyInformation, patientContext, clinicalMeasurements, trendAndRisk, chartSuggestions) {
-  const allSections = [clinicalMeasurements, keyInformation, trendAndRisk, patientContext];
-  const numericEntries = []; // each: { name (short), value, fullLabel }
-  allSections.forEach((section) => {
+function buildChartData(keyInformation, patientContext, clinicalMeasurements, trendAndRisk) {
+  const sections = [clinicalMeasurements, keyInformation, trendAndRisk, patientContext];
+  const numeric = [];
+  sections.forEach((section) => {
     if (!section || typeof section !== "object") return;
     Object.entries(section).forEach(([label, value]) => {
       const n = parseNum(value);
       if (n != null && isFinite(n)) {
         const shortName = label.length > 18 ? label.slice(0, 16) + "…" : label;
-        numericEntries.push({ name: shortName, value: n, fullLabel: label });
+        numeric.push({ name: shortName, value: n, fullLabel: label });
       }
     });
   });
+  const healthOnly = numeric.filter((e) => !isPersonalInfo(e.fullLabel));
 
-  // Never include personal info in any chart — only health data
-  const healthOnly = numericEntries.filter((e) => !isPersonalInfo(e.fullLabel));
-
-  const radarKeys = chartSuggestions?.radar;
-  const barKeys = chartSuggestions?.bar;
-  const lineKeys = chartSuggestions?.line;
-  const useSuggestions = (radarKeys?.length || barKeys?.length || lineKeys?.length) > 0;
-
-  const radarSource = useSuggestions && radarKeys?.length
-    ? filterBySuggestions(healthOnly, radarKeys)
-    : healthOnly;
-  const barSource = useSuggestions && barKeys?.length
-    ? filterBySuggestions(healthOnly, barKeys)
-    : healthOnly;
-  const lineSource = useSuggestions && lineKeys?.length
-    ? filterBySuggestions(healthOnly, lineKeys)
-    : healthOnly;
-
-  const r = radarSource.length ? radarSource : healthOnly;
-  const b = barSource.length ? barSource : healthOnly;
-  const l = lineSource.length ? lineSource : healthOnly;
-
-  const maxValR = Math.max(...r.map((d) => d.value), 1);
-  const radarRows = (r.length ? r : []).slice(0, 6).map((d) => ({
+  const maxValR = Math.max(...healthOnly.map((d) => d.value), 1);
+  const radar = healthOnly.slice(0, 6).map((d) => ({
     subject: d.name,
     A: d.value,
     fullMark: Math.max(maxValR * 1.2, 10),
   }));
-  const barRows = (b.length ? b : []).map((d) => ({ name: d.name, value: d.value }));
-  const lineRows = (l.length ? l : []).map((d) => ({ name: d.name, value: d.value }));
+  const bars = healthOnly.map((d) => ({ name: d.name, value: d.value }));
+  const line = healthOnly.map((d) => ({ name: d.name, value: d.value }));
+
   const tableRows = [];
   [keyInformation, patientContext, clinicalMeasurements, trendAndRisk].forEach((section) => {
     if (!section || typeof section !== "object") return;
     Object.entries(section).forEach(([label, value]) => {
-      if (value != null && String(value).trim() !== "") tableRows.push({ label, value: String(value) });
+      if (value != null && String(value).trim() !== "")
+        tableRows.push({ label, value: String(value) });
     });
   });
 
-  const emptyBar = [{ name: "No data", value: 0 }];
-  return {
-    radarRows: radarRows.length ? radarRows : [{ subject: "No data", A: 0, fullMark: 100 }],
-    barRows: barRows.length ? barRows : emptyBar,
-    lineRows: lineRows.length ? lineRows : emptyBar,
-    tableRows,
-    hasNumeric: barRows.length > 0 || lineRows.length > 0,
-  };
+  return { radarRows: radar, barRows: bars, lineRows: line, tableRows, hasData: bars.length > 0 };
 }
 
-/** Render a recommendation value that may be a string, array of strings, or object (e.g. diet: { what_to_eat, what_to_avoid }). */
 function RecContent({ value }) {
   if (value == null) return null;
-  if (typeof value === "string") return <p className="leading-relaxed whitespace-pre-line">{value}</p>;
+  if (typeof value === "string")
+    return <p className="leading-relaxed whitespace-pre-line text-[13px]" style={{ color: "var(--ink-700)" }}>{value}</p>;
   if (Array.isArray(value)) {
     const text = value.filter(Boolean).map((v) => (typeof v === "string" ? v : String(v))).join("\n");
-    return text ? <p className="leading-relaxed whitespace-pre-line">{text}</p> : null;
+    return text ? (
+      <p className="leading-relaxed whitespace-pre-line text-[13px]" style={{ color: "var(--ink-700)" }}>{text}</p>
+    ) : null;
   }
   if (typeof value === "object") {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 text-[13px]" style={{ color: "var(--ink-700)" }}>
         {Object.entries(value).map(([k, v]) => {
           if (v == null || v === "") return null;
           const label = String(k).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
           const text = typeof v === "string" ? v : JSON.stringify(v);
           return (
             <div key={k}>
-              <span className="font-medium text-gray-800">{label}: </span>
+              <span className="font-medium" style={{ color: "var(--ink-900)" }}>{label}: </span>
               <span className="whitespace-pre-line">{text}</span>
             </div>
           );
@@ -145,7 +110,7 @@ function RecContent({ value }) {
       </div>
     );
   }
-  return <p className="leading-relaxed">{String(value)}</p>;
+  return <p className="text-[13px]" style={{ color: "var(--ink-700)" }}>{String(value)}</p>;
 }
 
 function getByKey(obj, ...keys) {
@@ -158,61 +123,6 @@ function getByKey(obj, ...keys) {
   return null;
 }
 
-function getAIRecommendation(keyInformation, patientContext, clinicalMeasurements, trendAndRisk) {
-  const ki = keyInformation || {};
-  const tr = trendAndRisk || {};
-  const cm = clinicalMeasurements || {};
-  const hasData =
-    Object.keys(ki).length > 0 || Object.keys(patientContext || {}).length > 0 ||
-    Object.keys(cm).length > 0 || Object.keys(tr).length > 0;
-
-  if (!hasData) {
-    return "Add data in My Data or run a Health Scan to see personalized insights and recommendations here.";
-  }
-
-  const parts = [];
-
-  const summary = getByKey(ki, "Overall summary", "Summary", "Interpretation", "Notable finding") ||
-    getByKey(tr, "Interpretation", "Summary");
-  if (summary) parts.push(summary);
-
-  const testType = getByKey(ki, "Test type", "Report title");
-  if (testType) parts.push(`Report type: ${testType}.`);
-
-  const totalIge = getByKey(ki, "Total IgE") || getByKey(cm, "Total IgE");
-  if (totalIge) {
-    const ref = getByKey(ki, "Total IgE reference range") || getByKey(cm, "Total IgE reference range");
-    if (ref) parts.push(`Total IgE ${totalIge} (reference: ${ref}).`);
-    else parts.push(`Total IgE: ${totalIge}.`);
-  }
-
-  const trendVal = getByKey(tr, "Trend", "trend");
-  if (trendVal && String(trendVal).toLowerCase().includes("increasing")) {
-    parts.push("Trend is increasing; a follow-up with your doctor may be helpful.");
-  }
-  const severity = getByKey(tr, "Severity", "severity");
-  if (severity && (String(severity).includes("Moderate") || String(severity).includes("Severe") || String(severity).toLowerCase().includes("borderline"))) {
-    parts.push("Some results are outside or borderline to the normal range—discuss with your healthcare provider.");
-  }
-
-  const suspicious = [];
-  Object.entries(cm).forEach(([label, value]) => {
-    const v = String(value).toLowerCase();
-    if (v.includes("suspicious") || v.includes("positive") || v.includes("elevated") || v.includes("borderline")) {
-      suspicious.push(`${label}: ${value}`);
-    }
-  });
-  if (suspicious.length > 0) {
-    parts.push("Items to discuss with your doctor: " + suspicious.slice(0, 3).join("; ") + ".");
-  }
-
-  if (parts.length === 0) {
-    parts.push("Your data is summarized in the charts and table above. Discuss any concerns with your healthcare provider.");
-  }
-
-  return parts.join(" ");
-}
-
 function hasAnyData(sections) {
   return sections.some((s) => {
     if (!s || typeof s !== "object") return false;
@@ -220,11 +130,81 @@ function hasAnyData(sections) {
   });
 }
 
+function deriveKpis(keyInformation, clinicalMeasurements, trendAndRisk) {
+  const kpis = [];
+
+  const totalIge = getByKey(keyInformation, "Total IgE") || getByKey(clinicalMeasurements, "Total IgE");
+  if (totalIge) {
+    kpis.push({
+      label: "Total IgE",
+      value: String(totalIge).split(" ")[0].replace(/[^\d.]/g, "") || totalIge,
+      sub: getByKey(keyInformation, "Total IgE reference range") || "IU/mL",
+      delta: "Tracked",
+      tone: "var(--clay-ink)",
+      tint: "var(--bg-clay-tint)",
+    });
+  }
+
+  const hb = getByKey(clinicalMeasurements, "Haemoglobin", "Hemoglobin");
+  if (hb) {
+    kpis.push({
+      label: "Haemoglobin",
+      value: String(hb).split(" ")[0].replace(/[^\d.]/g, "") || hb,
+      sub: "g/dL",
+      delta: "Stable",
+      tone: "var(--sage-ink)",
+      tint: "var(--bg-sage-tint)",
+    });
+  }
+
+  const eos = getByKey(clinicalMeasurements, "Eosinophils");
+  if (eos) {
+    kpis.push({
+      label: "Eosinophils",
+      value: String(eos).split(" ")[0].replace(/[^\d.]/g, "") || eos,
+      sub: "×10⁹/L",
+      delta: "Monitor",
+      tone: "var(--clay-ink)",
+      tint: "var(--bg-clay-tint)",
+    });
+  }
+
+  const severity = getByKey(trendAndRisk, "Severity");
+  const trend = getByKey(trendAndRisk, "Trend");
+  kpis.push({
+    label: "Risk flag",
+    value: severity ? severity.split(" ")[0] : "—",
+    sub: trend || "based on latest scan",
+    delta: trend ? "Noted" : "—",
+    tone: "var(--blue-ink)",
+    tint: "var(--bg-blue-tint)",
+  });
+
+  // Fill to 4 with placeholders if user hasn't got this data
+  while (kpis.length < 4) {
+    kpis.push({
+      label: "—",
+      value: "—",
+      sub: "Add more data in My Data",
+      delta: "",
+      tone: "var(--ink-500)",
+      tint: "var(--bg-cream)",
+    });
+  }
+  return kpis.slice(0, 4);
+}
+
+// ─── Component ──────────────────────────────────────────────────────────
+
+const RANGE_OPTIONS = ["1M", "3M", "6M", "1Y"];
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [myData, setMyData] = useState(null);
   const [scanCount, setScanCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState("6M");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -244,7 +224,9 @@ export default function Dashboard() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const keyInformation = myData?.keyInformation || {};
@@ -257,16 +239,24 @@ export default function Dashboard() {
     [keyInformation, patientContext, clinicalMeasurements, trendAndRisk]
   );
 
-  // Only show charts when we have real numeric data (from Health Scan). Text-only or placeholder = no scan.
-  const hasRealChartData = useMemo(() => {
-    const { barRows } = buildChartDataFromMyData(keyInformation, patientContext, clinicalMeasurements, trendAndRisk, null);
-    return barRows.some((r) => r.name !== "No data");
-  }, [keyInformation, patientContext, clinicalMeasurements, trendAndRisk]);
+  const { radarRows, barRows, lineRows, tableRows, hasData: hasRealCharts } = useMemo(
+    () => buildChartData(keyInformation, patientContext, clinicalMeasurements, trendAndRisk),
+    [keyInformation, patientContext, clinicalMeasurements, trendAndRisk]
+  );
 
-  // Display recommendations: from API (saved after Health Scan) or from localStorage if save failed
-  const savedRecs = myData?.recommendations && (myData.recommendations.actions || myData.recommendations.diet || myData.recommendations.exercise || myData.recommendations.risks)
-    ? myData.recommendations
-    : null;
+  const kpis = useMemo(
+    () => deriveKpis(keyInformation, clinicalMeasurements, trendAndRisk),
+    [keyInformation, clinicalMeasurements, trendAndRisk]
+  );
+
+  const savedRecs =
+    myData?.recommendations &&
+    (myData.recommendations.actions ||
+      myData.recommendations.diet ||
+      myData.recommendations.exercise ||
+      myData.recommendations.risks)
+      ? myData.recommendations
+      : null;
   const localScan = (() => {
     try {
       const raw = typeof localStorage !== "undefined" ? localStorage.getItem(HEALTH_SCAN_RESULT_KEY) : null;
@@ -280,183 +270,462 @@ export default function Dashboard() {
     }
   })();
   const displayedRecs = savedRecs || localScan;
-  const chartSuggestions = null;
-  const { radarRows, barRows, lineRows, tableRows } = useMemo(
-    () => buildChartDataFromMyData(keyInformation, patientContext, clinicalMeasurements, trendAndRisk, chartSuggestions),
-    [keyInformation, patientContext, clinicalMeasurements, trendAndRisk, chartSuggestions]
-  );
 
-  const radarData = radarRows;
-  const barData = barRows;
-  const lineData = lineRows;
+  const scanDate = useMemo(() => {
+    const d = getByKey(keyInformation, "Report date") ||
+      getByKey(keyInformation, "Date") ||
+      (myData?.updatedAt ? new Date(myData.updatedAt).toLocaleDateString() : null);
+    return d || "your latest scan";
+  }, [keyInformation, myData]);
+
+  const filteredTable = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return tableRows;
+    return tableRows.filter(
+      (r) =>
+        String(r.label).toLowerCase().includes(q) ||
+        String(r.value).toLowerCase().includes(q)
+    );
+  }, [tableRows, search]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar active="My Data" />
+    <div style={{ background: "var(--bg-cream)", minHeight: "100vh" }}>
+      <Navbar />
 
-      <main className="flex flex-grow pt-32 pb-12 px-4 sm:px-6 max-w-[1280px] mx-auto gap-6">
+      <main
+        className="flex gap-6 mx-auto"
+        style={{ maxWidth: 1400, padding: "88px 32px 48px" }}
+      >
         <MyDataSidebar activePage="Dashboard" />
 
-        <div className="flex-1 bg-white rounded-2xl shadow p-8 border border-gray-200">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-4">
-            Your Health Dashboard
-          </h1>
-          <p className="text-gray-600 mb-10">
-            Charts and summary from your My Data. Run a Health Scan or edit My Data to update.
-          </p>
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex flex-wrap justify-between items-end gap-6 mb-6">
+            <div>
+              <div className="cd-chip mb-3">
+                <span className="dot" /> Based on scan from {scanDate}
+              </div>
+              <h1
+                className="mb-1.5"
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 40,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.1,
+                  color: "var(--ink-900)",
+                }}
+              >
+                Personal health dashboard
+              </h1>
+              <p
+                className="max-w-[560px] text-sm"
+                style={{ color: "var(--ink-500)" }}
+              >
+                A calm overview of your most recent lab results, how values
+                distribute, compare, and trend.
+              </p>
+            </div>
+            <div className="flex gap-2.5">
+              <div
+                className="flex items-center gap-2 text-sm rounded-[10px]"
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid var(--line)",
+                  background: "var(--bg-white)",
+                  color: "var(--ink-700)",
+                }}
+              >
+                <span style={{ color: "var(--ink-500)" }}>Range</span>
+                <strong style={{ color: "var(--ink-900)", fontWeight: 500 }}>
+                  Last {range === "1M" ? "1 month" : range === "3M" ? "3 months" : range === "6M" ? "6 months" : "year"}
+                </strong>
+                <ChevronDown size={14} style={{ color: "var(--ink-500)" }} />
+              </div>
+              <button type="button" className="cd-btn cd-btn-soft">
+                <ArrowUpFromLine size={14} /> Export report
+              </button>
+            </div>
+          </div>
 
           {loading && (
-            <p className="text-center text-gray-500 text-sm mb-6">Loading your data…</p>
+            <div
+              className="cd-surface text-center text-sm mb-5"
+              style={{ padding: 20, color: "var(--ink-500)" }}
+            >
+              Loading your data…
+            </div>
           )}
 
-          {!loading && (scanCount === 0 || !hasData || !hasRealChartData) && (
-            <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-xl text-center">
-              <p className="text-amber-800 font-medium mb-2">No Health Scan data yet</p>
-              <p className="text-sm text-amber-700 mb-4">
-                Go to <strong>Health Scan</strong>, upload a health record image (e.g. lab result, allergy panel), and we&apos;ll extract and show the information here.
+          {!loading && (scanCount === 0 || !hasData || !hasRealCharts) && (
+            <div
+              className="mb-6 text-center"
+              style={{
+                padding: 20,
+                background: "var(--bg-clay-tint)",
+                border: "1px solid var(--line-soft)",
+                borderRadius: "var(--r-lg)",
+              }}
+            >
+              <p className="font-medium mb-2" style={{ color: "var(--clay-ink)" }}>
+                No Health Scan data yet
+              </p>
+              <p className="text-sm mb-4" style={{ color: "var(--ink-700)" }}>
+                Go to <strong>Health Scan</strong>, upload a health record image
+                (e.g. lab result, allergy panel), and we'll extract and show the
+                information here.
               </p>
               <button
                 type="button"
                 onClick={() => navigate("/health-scan")}
-                className="bg-amber-500 text-white px-4 py-2 rounded-md font-medium hover:bg-amber-600 transition"
+                className="cd-btn cd-btn-primary"
               >
                 Open Health Scan
               </button>
             </div>
           )}
 
-          {!loading && scanCount > 0 && hasData && hasRealChartData && (
-          <>
-          {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                Lab & test values (Radar)
-              </h3>
-              <p className="text-xs text-gray-500 mb-2">Health data only — no name, age, or date of birth.</p>
-              <ResponsiveContainer width="100%" height={250}>
-                <RadarChart data={radarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" />
-                  <PolarRadiusAxis />
-                  <Radar
-                    name="Value"
-                    dataKey="A"
-                    stroke="#ea580c"
-                    fill="#fb923c"
-                    fillOpacity={0.5}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                Lab & test values (Bar)
-              </h3>
-              <p className="text-xs text-gray-500 mb-2">Health data only — no personal information.</p>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={barData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#f97316" name="Value" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Line Chart + AI Recommendation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                Lab & test values (Line)
-              </h3>
-              <p className="text-xs text-gray-500 mb-2">Health data only — no personal information.</p>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={lineData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#ea580c"
-                    strokeWidth={2}
-                    name="Value"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-
-              <div className="mt-6 bg-orange-50 border border-orange-200 rounded-lg p-5">
-                <h3 className="text-lg font-semibold text-orange-800 mb-3">
-                  AI-Assisted Recommendations
-                </h3>
-                {displayedRecs && (displayedRecs.actions || displayedRecs.diet || displayedRecs.exercise || displayedRecs.risks) && (
-                  <div className="space-y-4 text-sm text-gray-700">
-                    {displayedRecs.actions && (
-                      <div>
-                        <h4 className="font-semibold text-orange-800 mb-1">What to do</h4>
-                        <RecContent value={displayedRecs.actions} />
-                      </div>
-                    )}
-                    {displayedRecs.diet && (
-                      <div>
-                        <h4 className="font-semibold text-orange-800 mb-1">Diet: what to eat & avoid</h4>
-                        <RecContent value={displayedRecs.diet} />
-                      </div>
-                    )}
-                    {displayedRecs.exercise && (
-                      <div>
-                        <h4 className="font-semibold text-orange-800 mb-1">Exercise & activity</h4>
-                        <RecContent value={displayedRecs.exercise} />
-                      </div>
-                    )}
-                    {displayedRecs.risks && (
-                      <div>
-                        <h4 className="font-semibold text-orange-800 mb-1">Possible risks / conditions</h4>
-                        <RecContent value={displayedRecs.risks} />
+          {!loading && scanCount > 0 && hasData && hasRealCharts && (
+            <>
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+                {kpis.map((k, i) => (
+                  <div key={i} className="cd-kpi">
+                    <div className="label">{k.label}</div>
+                    <div className="value">{k.value}</div>
+                    <div className="text-[12px]" style={{ color: "var(--ink-500)" }}>
+                      {k.sub}
+                    </div>
+                    {k.delta && (
+                      <div
+                        className="absolute"
+                        style={{
+                          top: 16,
+                          right: 16,
+                          padding: "3px 9px",
+                          fontSize: 11,
+                          fontWeight: 500,
+                          background: k.tint,
+                          color: k.tone,
+                          borderRadius: 999,
+                        }}
+                      >
+                        {k.delta}
                       </div>
                     )}
                   </div>
-                )}
-                {(!displayedRecs || (!displayedRecs.actions && !displayedRecs.diet && !displayedRecs.exercise && !displayedRecs.risks)) && (
-                  <p className="text-gray-700 leading-relaxed text-sm">
-                    Run a Health Scan to get AI-Assisted Recommendations (what to do, diet, exercise & activity, possible risks). They are generated when you analyze images and saved here.
-                  </p>
-                )}
+                ))}
               </div>
-            </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                My Data summary
-              </h3>
-              {tableRows.length > 0 ? (
-                <table className="w-full text-sm text-left border border-gray-200">
-                  <thead className="bg-gray-100">
+              {/* Row 1: Radar + Bar */}
+              <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-5 mb-5">
+                <div className="cd-surface" style={{ padding: 24 }}>
+                  <div className="cd-section-title">
+                    <div>
+                      <h3>Lab & test values</h3>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--ink-500)" }}>
+                        Radar · relative to reference ranges
+                      </div>
+                    </div>
+                    <span className="hint">Health data only</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <RadarChart data={radarRows} outerRadius="72%">
+                      <PolarGrid stroke="var(--line-soft)" />
+                      <PolarAngleAxis
+                        dataKey="subject"
+                        tick={{ fill: "var(--ink-500)", fontSize: 11, fontFamily: "var(--font-sans)" }}
+                      />
+                      <PolarRadiusAxis stroke="var(--line-soft)" tick={false} axisLine={false} />
+                      <Radar
+                        name="Value"
+                        dataKey="A"
+                        stroke="oklch(0.55 0.08 150)"
+                        fill="oklch(0.72 0.06 150 / 0.25)"
+                        strokeWidth={1.5}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--bg-white)",
+                          border: "1px solid var(--line)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="cd-surface" style={{ padding: 24 }}>
+                  <div className="cd-section-title">
+                    <div>
+                      <h3>Value comparison</h3>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--ink-500)" }}>
+                        Bar · absolute measurements
+                      </div>
+                    </div>
+                    <span className="hint">Click a bar for detail</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart
+                      data={barRows}
+                      margin={{ top: 20, right: 10, left: 0, bottom: 10 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 4"
+                        stroke="var(--line-soft)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fill: "var(--ink-500)", fontSize: 11, fontFamily: "var(--font-sans)" }}
+                        axisLine={{ stroke: "var(--line-soft)" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: "var(--ink-500)", fontSize: 11, fontFamily: "var(--font-sans)" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "var(--bg-cream)" }}
+                        contentStyle={{
+                          background: "var(--bg-white)",
+                          border: "1px solid var(--line)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar
+                        dataKey="value"
+                        fill="oklch(0.74 0.06 70)"
+                        radius={[8, 8, 2, 2]}
+                      >
+                        <LabelList
+                          dataKey="value"
+                          position="top"
+                          style={{
+                            fill: "var(--ink-700)",
+                            fontSize: 11,
+                            fontWeight: 500,
+                          }}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Row 2: Line + AI reco */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-5 mb-5">
+                <div className="cd-surface" style={{ padding: 24 }}>
+                  <div className="cd-section-title">
+                    <div>
+                      <h3>Trend over time</h3>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--ink-500)" }}>
+                        Line · values across data points
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {RANGE_OPTIONS.map((r) => (
+                        <button
+                          type="button"
+                          key={r}
+                          onClick={() => setRange(r)}
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: 12,
+                            borderRadius: 6,
+                            background: range === r ? "var(--ink-900)" : "transparent",
+                            color: range === r ? "var(--bg-paper)" : "var(--ink-500)",
+                            border: range === r ? "none" : "1px solid var(--line)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={230}>
+                    <LineChart
+                      data={lineRows}
+                      margin={{ top: 10, right: 12, left: 0, bottom: 10 }}
+                    >
+                      <defs>
+                        <linearGradient id="d-line-g" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="oklch(0.72 0.05 230 / 0.3)" />
+                          <stop offset="100%" stopColor="oklch(0.72 0.05 230 / 0)" />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 4" stroke="var(--line-soft)" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fill: "var(--ink-500)", fontSize: 11, fontFamily: "var(--font-sans)" }}
+                        axisLine={{ stroke: "var(--line-soft)" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: "var(--ink-500)", fontSize: 11, fontFamily: "var(--font-sans)" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--bg-white)",
+                          border: "1px solid var(--line)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="oklch(0.42 0.06 230)"
+                        strokeWidth={2}
+                        dot={{ r: 3.5, fill: "#fff", stroke: "oklch(0.42 0.06 230)", strokeWidth: 2 }}
+                        activeDot={{ r: 4.5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div
+                  className="cd-surface"
+                  style={{
+                    padding: 24,
+                    background: "var(--bg-sage-tint)",
+                    borderColor: "var(--line-soft)",
+                  }}
+                >
+                  <div className="flex items-center gap-2.5 mb-3.5">
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        background: "var(--sage-ink)",
+                        color: "var(--bg-paper)",
+                      }}
+                    >
+                      <Sparkles size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-[15px] font-semibold" style={{ color: "var(--ink-900)" }}>
+                        AI-assisted recommendations
+                      </h3>
+                      <div className="text-[11px]" style={{ color: "var(--ink-500)" }}>
+                        Generated from your data · review with your clinician
+                      </div>
+                    </div>
+                  </div>
+                  {displayedRecs && (displayedRecs.actions || displayedRecs.diet || displayedRecs.exercise || displayedRecs.risks) ? (
+                    <div className="space-y-3">
+                      {[
+                        ["What to do", displayedRecs.actions],
+                        ["Diet", displayedRecs.diet],
+                        ["Exercise & activity", displayedRecs.exercise],
+                        ["Possible risks", displayedRecs.risks],
+                      ].map(
+                        ([title, val], i) =>
+                          val && (
+                            <div
+                              key={i}
+                              style={{
+                                paddingTop: i === 0 ? 12 : 10,
+                                borderTop: i === 0 ? "1px solid var(--line-soft)" : "none",
+                              }}
+                            >
+                              <div
+                                className="text-[12px] font-semibold uppercase mb-1"
+                                style={{
+                                  color: "var(--sage-ink)",
+                                  letterSpacing: "0.04em",
+                                }}
+                              >
+                                {title}
+                              </div>
+                              <RecContent value={val} />
+                            </div>
+                          )
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[13px] leading-relaxed" style={{ color: "var(--ink-700)" }}>
+                      Run a Health Scan to get AI-assisted recommendations (what
+                      to do, diet, exercise & activity, possible risks). They're
+                      generated when you analyze images and saved here.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3: Summary table */}
+              <div className="cd-surface overflow-hidden" style={{ padding: 0 }}>
+                <div
+                  className="flex flex-wrap items-center justify-between gap-3"
+                  style={{
+                    padding: "20px 24px",
+                    borderBottom: "1px solid var(--line-soft)",
+                  }}
+                >
+                  <div>
+                    <h3 className="text-[16px] font-semibold" style={{ color: "var(--ink-900)" }}>
+                      My Data summary
+                    </h3>
+                    <p className="text-[12px] mt-0.5" style={{ color: "var(--ink-500)" }}>
+                      Every field extracted from your most recent scan.
+                    </p>
+                  </div>
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute"
+                      style={{ left: 10, top: 9, color: "var(--ink-500)" }}
+                    />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search fields"
+                      style={{
+                        padding: "7px 10px 7px 30px",
+                        fontSize: 13,
+                        border: "1px solid var(--line)",
+                        borderRadius: 8,
+                        background: "var(--bg-paper)",
+                        width: 200,
+                        outline: "none",
+                        color: "var(--ink-900)",
+                      }}
+                    />
+                  </div>
+                </div>
+                <table className="cd-table">
+                  <thead>
                     <tr>
-                      <th className="px-3 py-2 text-gray-700 font-medium">Field</th>
-                      <th className="px-3 py-2 text-gray-700 font-medium">Value</th>
+                      <th style={{ width: "40%" }}>Field</th>
+                      <th>Value</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tableRows.map((row, i) => (
-                      <tr key={i} className="border-b hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-700 font-medium">{row.label}</td>
-                        <td className="px-3 py-2 text-gray-900">{row.value}</td>
+                    {filteredTable.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} style={{ textAlign: "center", color: "var(--ink-500)" }}>
+                          No matches.
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredTable.map((row, i) => (
+                        <tr key={i}>
+                          <td style={{ color: "var(--ink-500)" }}>{row.label}</td>
+                          <td style={{ fontWeight: 500 }}>{row.value}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
-              ) : (
-                <p className="text-gray-500 text-sm py-4">
-                  No data yet. Add data in My Data or run a Health Scan to see your summary here.
-                </p>
-              )}
-            </div>
-          </div>
-          </>
+              </div>
+            </>
           )}
         </div>
       </main>

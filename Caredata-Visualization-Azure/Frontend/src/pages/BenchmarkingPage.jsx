@@ -4,9 +4,9 @@ import Navbar from "../components/common/Navbar";
 import Footer from "../components/common/Footer";
 import { getQIAggregates } from "../services/api";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { STATUS, CHART_PALETTE, CHART_GRID, axisTickStyle, tooltipStyle, legendStyle } from "../theme/chartTokens";
 
-// AIHW published national medians — these don't change with uploads
-// id must match backend analysis indicator id
+// AIHW published national medians, these don't change with uploads
 const NATIONAL_MEDIANS = [
   { id: "pi",              name: "Pressure injuries",     nat: 10.2, lib: true,  unit: "%",   convert: null },
   { id: "falls",           name: "Falls & major injury",  nat: 8.3,  lib: true,  unit: "%",   convert: null },
@@ -28,7 +28,6 @@ const NATIONAL_MEDIANS = [
 function convertFacilityRate(indicator, natEntry) {
   if (indicator.currentRate == null) return null;
   const rate = indicator.currentRate;
-  // CE/QoL scores are 0-24 in new schema; convert to % for comparison with national median
   if (natEntry.convert === "score24_to_pct" && indicator.valueDisplay?.includes("/24")) {
     return Math.round((rate / 24) * 100 * 10) / 10;
   }
@@ -77,16 +76,14 @@ function computeSummary(indicators) {
 function buildDiffData(indicators) {
   return indicators.map((i) => {
     const d = i.lib ? i.fac - i.nat : i.nat - i.fac;
-    return { name: i.name.length > 18 ? i.name.slice(0, 18) + "\u2026" : i.name, diff: Math.round(d * 10) / 10 };
+    return { name: i.name.length > 18 ? i.name.slice(0, 18) + "…" : i.name, diff: Math.round(d * 10) / 10 };
   });
 }
 
 function buildPercentileTrend(aggregates, quarterLabels) {
   if (!quarterLabels.length) return [];
-  // For each quarter, count how many indicators are worse than national
   return quarterLabels.map((q, qi) => {
     let aboveCount = 0;
-    // Find the aggregate for this quarter index
     const agg = aggregates[qi];
     const aggIndicators = agg?.indicators || [];
     NATIONAL_MEDIANS.forEach((natEntry) => {
@@ -124,7 +121,6 @@ export default function BenchmarkingPage() {
         setQuarterLabels(labels);
         if (aggs.length) {
           setQuarterIndex(aggs.length - 1);
-          // Use the latest aggregate's indicators
           setLatestIndicators(aggs[aggs.length - 1]?.indicators || []);
         }
       } catch (err) {
@@ -136,7 +132,6 @@ export default function BenchmarkingPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // When quarter index changes, update the indicators to match that quarter
   useEffect(() => {
     if (!aggregates.length) return;
     const agg = aggregates[Math.min(quarterIndex, aggregates.length - 1)];
@@ -147,7 +142,7 @@ export default function BenchmarkingPage() {
 
   const hasRealData = latestIndicators.length > 0;
   const indicators = buildIndicators(hasRealData ? latestIndicators : null);
-  const currentQuarterLabel = quarterLabels.length > 0 ? quarterLabels[Math.min(quarterIndex, quarterLabels.length - 1)] : "\u2014";
+  const currentQuarterLabel = quarterLabels.length > 0 ? quarterLabels[Math.min(quarterIndex, quarterLabels.length - 1)] : "—";
   const summary = computeSummary(indicators);
   const diffData = buildDiffData(indicators);
   const percentileTrend = hasRealData
@@ -157,143 +152,222 @@ export default function BenchmarkingPage() {
   const maxVal = Math.max(...indicators.map((i) => Math.max(i.fac, i.nat)), 1);
   const scale = 100 / (maxVal * 1.1);
 
+  const statusColor = (s) =>
+    s === "red" ? "var(--clay-ink)" : s === "amber" ? "var(--amber)" : "var(--sage-ink)";
+  const statusFill = (s) =>
+    s === "red" ? "var(--clay)" : s === "amber" ? "var(--amber)" : "var(--sage)";
+
+  const pillBtn = (active) => ({
+    fontSize: 13,
+    padding: "6px 12px",
+    borderRadius: 999,
+    border: `1px solid ${active ? "var(--ink-900)" : "var(--line)"}`,
+    background: active ? "var(--ink-900)" : "var(--bg-white)",
+    color: active ? "var(--bg-white)" : "var(--ink-700)",
+    fontWeight: active ? 500 : 400,
+    cursor: "pointer",
+    transition: "all .15s ease",
+  });
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar />
 
-      <main className="flex-grow pt-32 pb-12 px-4 sm:px-6 lg:px-8 max-w-[1280px] mx-auto w-full">
-        {/* Page header */}
+      <main className="flex-grow pt-28 pb-12 px-4 sm:px-8 max-w-[1280px] mx-auto w-full">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900 mb-1">
-              <span className="font-bold">Benchmarking</span> — Facility vs national
+            <span className="cd-chip mb-3" style={{ display: "inline-flex" }}>
+              <span className="dot" /> Benchmarking
+            </span>
+            <h1
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 36,
+                letterSpacing: "-0.01em",
+                color: "var(--ink-900)",
+                lineHeight: 1.1,
+                marginTop: 6,
+              }}
+            >
+              Facility vs national
             </h1>
-            <p className="text-base text-gray-500">
-              Facility rates compared against AIHW published national medians{currentQuarterLabel !== "\u2014" ? ` \u00b7 ${currentQuarterLabel}` : ""}
+            <p style={{ color: "var(--ink-500)", fontSize: 14, marginTop: 6 }}>
+              Facility rates compared against AIHW published national medians
+              {currentQuarterLabel !== "—" ? ` · ${currentQuarterLabel}` : ""}
             </p>
           </div>
-          <div className="text-sm text-gray-400">Source: AIHW QI Program Report 2024</div>
+          <div style={{ fontSize: 12, color: "var(--ink-500)" }}>
+            Source: AIHW QI Program Report 2024
+          </div>
         </div>
 
-        {/* Empty state */}
         {!loading && !hasRealData && (
-          <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-            No QI data uploaded yet. <Link to="/upload-csv" className="text-primary font-medium hover:underline">Upload a CSV</Link> to see your facility's benchmarking data against national medians.
+          <div
+            className="mb-5 p-4 text-sm"
+            style={{
+              background: "var(--bg-clay-tint)",
+              borderLeft: "3px solid var(--clay-ink)",
+              borderRadius: 10,
+              color: "var(--ink-700)",
+            }}
+          >
+            No QI data uploaded yet.{" "}
+            <Link
+              to="/upload-csv"
+              className="font-medium hover:underline"
+              style={{ color: "var(--sage-ink)" }}
+            >
+              Upload a CSV
+            </Link>{" "}
+            to see your facility's benchmarking data against national medians.
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
-          <div className="text-center py-12 text-gray-400">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+          <div className="text-center py-12" style={{ color: "var(--ink-500)" }}>
+            <div
+              className="inline-block w-8 h-8 rounded-full animate-spin mb-3"
+              style={{ border: "3px solid var(--line)", borderTopColor: "var(--sage-ink)" }}
+            />
             <p className="text-sm">Loading benchmarking data...</p>
           </div>
         )}
 
-        {/* Filter row */}
-        <div className="flex flex-wrap items-center gap-2 py-4 border-b border-gray-200">
-          <span className="text-sm text-gray-500 mr-1">Peer group:</span>
+        <div
+          className="flex flex-wrap items-center gap-2 py-4"
+          style={{ borderBottom: "1px solid var(--line)" }}
+        >
+          <span className="text-sm mr-1" style={{ color: "var(--ink-500)" }}>Peer group:</span>
           {["All facilities", "Metro", "Regional", "Rural"].map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setPeerGroup(opt)}
-              className={`text-sm px-3 py-1.5 rounded-full border transition ${
-                peerGroup === opt
-                  ? "bg-gray-900 text-primary border-gray-900 font-medium"
-                  : "bg-white border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
-              }`}
-            >
+            <button key={opt} type="button" onClick={() => setPeerGroup(opt)} style={pillBtn(peerGroup === opt)}>
               {opt}
             </button>
           ))}
-          <span className="w-px h-5 bg-gray-200 mx-2" />
-          <span className="text-sm text-gray-500 mr-1">Size:</span>
-          {["All sizes", "< 60 beds", "60\u2013120 beds", "> 120 beds"].map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setSizeFilter(opt)}
-              className={`text-sm px-3 py-1.5 rounded-full border transition ${
-                sizeFilter === opt
-                  ? "bg-gray-900 text-primary border-gray-900 font-medium"
-                  : "bg-white border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
-              }`}
-            >
+          <span className="w-px h-5 mx-2" style={{ background: "var(--line)" }} />
+          <span className="text-sm mr-1" style={{ color: "var(--ink-500)" }}>Size:</span>
+          {["All sizes", "< 60 beds", "60–120 beds", "> 120 beds"].map((opt) => (
+            <button key={opt} type="button" onClick={() => setSizeFilter(opt)} style={pillBtn(sizeFilter === opt)}>
               {opt}
             </button>
           ))}
           {quarterLabels.length > 0 && (
             <div className="ml-auto flex items-center gap-2">
-              <button type="button" className="w-8 h-8 rounded-lg border border-gray-300 bg-white text-gray-600 flex items-center justify-center hover:bg-gray-100 transition disabled:opacity-50"
-                onClick={() => setQuarterIndex((i) => Math.max(0, i - 1))} disabled={quarterIndex <= 0}>{"\u2039"}</button>
-              <span className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 min-w-[100px] text-center">
+              <button
+                type="button"
+                className="w-8 h-8 flex items-center justify-center transition disabled:opacity-40"
+                style={{
+                  border: "1px solid var(--line)",
+                  background: "var(--bg-white)",
+                  color: "var(--ink-700)",
+                  borderRadius: 10,
+                }}
+                onClick={() => setQuarterIndex((i) => Math.max(0, i - 1))}
+                disabled={quarterIndex <= 0}
+              >
+                {"‹"}
+              </button>
+              <span
+                className="text-sm font-medium px-3 py-1.5 min-w-[100px] text-center"
+                style={{
+                  color: "var(--ink-900)",
+                  background: "var(--bg-white)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 999,
+                }}
+              >
                 {currentQuarterLabel}
               </span>
-              <button type="button" className="w-8 h-8 rounded-lg border border-gray-300 bg-white text-gray-600 flex items-center justify-center hover:bg-gray-100 transition disabled:opacity-50"
-                onClick={() => setQuarterIndex((i) => Math.min(quarterLabels.length - 1, i + 1))} disabled={quarterIndex >= quarterLabels.length - 1}>{"\u203a"}</button>
+              <button
+                type="button"
+                className="w-8 h-8 flex items-center justify-center transition disabled:opacity-40"
+                style={{
+                  border: "1px solid var(--line)",
+                  background: "var(--bg-white)",
+                  color: "var(--ink-700)",
+                  borderRadius: 10,
+                }}
+                onClick={() => setQuarterIndex((i) => Math.min(quarterLabels.length - 1, i + 1))}
+                disabled={quarterIndex >= quarterLabels.length - 1}
+              >
+                {"›"}
+              </button>
             </div>
           )}
           {quarterLabels.length === 0 && !loading && (
-            <span className="ml-auto text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-full px-3 py-1.5">
+            <span
+              className="ml-auto text-sm font-medium px-3 py-1.5"
+              style={{
+                color: "var(--ink-500)",
+                background: "var(--bg-white)",
+                border: "1px solid var(--line)",
+                borderRadius: 999,
+              }}
+            >
               Sample data
             </span>
           )}
         </div>
 
-        {/* Summary strip */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 mt-6">
-          <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Above national median</div>
-            <div className="text-2xl font-semibold text-red-600">{summary.above}</div>
-            <div className="text-sm text-gray-500 mt-1">of 14 indicators</div>
-          </div>
-          <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Below national median</div>
-            <div className="text-2xl font-semibold text-green-600">{summary.below}</div>
-            <div className="text-sm text-gray-500 mt-1">performing better</div>
-          </div>
-          <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">At national median</div>
-            <div className="text-2xl font-semibold text-amber-600">{summary.atMedian}</div>
-            <div className="text-sm text-gray-500 mt-1">within {"\u00b1"}0.5%</div>
-          </div>
-          <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Facility percentile</div>
-            <div className="text-2xl font-semibold text-amber-600">{summary.percentile}nd</div>
-            <div className="text-sm text-gray-500 mt-1">overall ranking</div>
-          </div>
+          {[
+            { label: "Above national median", value: summary.above, tone: "red", note: "of 14 indicators" },
+            { label: "Below national median", value: summary.below, tone: "green", note: "performing better" },
+            { label: "At national median", value: summary.atMedian, tone: "amber", note: "within ±0.5%" },
+            { label: "Facility percentile", value: `${summary.percentile}nd`, tone: "amber", note: "overall ranking" },
+          ].map((item) => (
+            <div key={item.label} className="cd-kpi p-5">
+              <div
+                className="uppercase tracking-wider mb-1"
+                style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-500)" }}
+              >
+                {item.label}
+              </div>
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 30, color: statusColor(item.tone) }}>
+                {item.value}
+              </div>
+              <div className="text-sm mt-1" style={{ color: "var(--ink-500)" }}>{item.note}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Main comparison card */}
-        <div className="bg-white rounded-2xl shadow border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Facility vs national median — all 14 indicators</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Each bar shows your facility rate (coloured) vs national median (grey). Red = above national median (worse). Green = below (better).
+        <div className="cd-surface p-6 mb-8">
+          <h2
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: 22,
+              color: "var(--ink-900)",
+              marginBottom: 4,
+            }}
+          >
+            Facility vs national median, all 14 indicators
+          </h2>
+          <p className="text-sm mb-4" style={{ color: "var(--ink-500)" }}>
+            Each bar shows your facility rate (coloured) vs national median (muted). Clay = above national median (worse). Sage = below (better).
           </p>
 
-          {/* Legend */}
           <div className="flex flex-wrap gap-6 mb-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="w-3 h-3 rounded-sm bg-red-500" />
-              Facility — above national (worse)
+            <div className="flex items-center gap-2 text-sm" style={{ color: "var(--ink-700)" }}>
+              <span className="w-3 h-3 rounded-sm" style={{ background: "var(--clay)" }} />
+              Facility, above national (worse)
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="w-3 h-3 rounded-sm bg-green-600" />
-              Facility — below national (better)
+            <div className="flex items-center gap-2 text-sm" style={{ color: "var(--ink-700)" }}>
+              <span className="w-3 h-3 rounded-sm" style={{ background: "var(--sage)" }} />
+              Facility, below national (better)
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="w-3 h-3 rounded-sm bg-gray-300 opacity-70" />
+            <div className="flex items-center gap-2 text-sm" style={{ color: "var(--ink-700)" }}>
+              <span className="w-3 h-3 rounded-sm" style={{ background: "var(--line-strong)", opacity: 0.7 }} />
               National median
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="w-0.5 h-3 rounded-full bg-gray-500 opacity-60" />
+            <div className="flex items-center gap-2 text-sm" style={{ color: "var(--ink-700)" }}>
+              <span className="w-0.5 h-3 rounded-full" style={{ background: "var(--ink-500)", opacity: 0.6 }} />
               Median marker
             </div>
           </div>
 
-          {/* Column headers */}
-          <div className="grid grid-cols-[minmax(140px,180px)_1fr_70px_70px_70px] gap-2 sm:gap-3 px-2 py-1 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider min-w-[600px]">
+          <div
+            className="grid grid-cols-[minmax(140px,180px)_1fr_70px_70px_70px] gap-2 sm:gap-3 px-2 py-1 mb-1 uppercase tracking-wider min-w-[600px]"
+            style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-500)" }}
+          >
             <div>Indicator</div>
             <div>Rate comparison</div>
             <div className="text-right">Facility</div>
@@ -301,89 +375,173 @@ export default function BenchmarkingPage() {
             <div className="text-right">Percentile</div>
           </div>
 
-          {/* Indicator rows */}
           <div className="space-y-2 overflow-x-auto">
             {indicators.map((ind) => {
               const status = getStatus(ind);
               const pct = getPercentile(ind);
-              const facW = Math.min(100, (ind.fac * scale));
-              const natW = Math.min(100, (ind.nat * scale));
-              const medPos = Math.min(100, (ind.nat * scale));
-              const barColor = status === "red" ? "bg-red-500" : status === "amber" ? "bg-amber-500" : "bg-green-600";
-              const textColor = status === "red" ? "text-red-600" : status === "amber" ? "text-amber-600" : "text-green-600";
-              const pctColor = pct.cls === "red" ? "text-red-600" : pct.cls === "amber" ? "text-amber-600" : "text-green-600";
+              const facW = Math.min(100, ind.fac * scale);
+              const natW = Math.min(100, ind.nat * scale);
+              const medPos = Math.min(100, ind.nat * scale);
               return (
                 <div
                   key={ind.name}
-                  className="grid grid-cols-[minmax(140px,180px)_1fr_70px_70px_70px] gap-2 sm:gap-3 items-center py-2.5 px-3 rounded-lg bg-gray-50 border border-gray-100 hover:bg-orange-50/50 hover:border-orange-100 transition min-w-[600px]"
+                  className="grid grid-cols-[minmax(140px,180px)_1fr_70px_70px_70px] gap-2 sm:gap-3 items-center py-2.5 px-3 min-w-[600px]"
+                  style={{
+                    background: "var(--bg-paper)",
+                    border: "1px solid var(--line-soft)",
+                    borderRadius: 10,
+                  }}
                 >
-                  <div className="text-sm font-medium text-gray-900 truncate">{ind.name}</div>
-                  <div className="relative h-5 bg-gray-200 rounded overflow-visible">
-                    <div className="absolute inset-y-1 left-0 rounded bg-gray-300 opacity-50 transition-all" style={{ width: `${natW}%` }} />
-                    <div className={`absolute inset-y-1 left-0 rounded opacity-90 transition-all ${barColor}`} style={{ width: `${facW}%` }} />
-                    <div className="absolute top-0 w-0.5 h-5 bg-gray-500 opacity-40 rounded-full" style={{ left: `${medPos}%` }} />
+                  <div className="text-sm font-medium truncate" style={{ color: "var(--ink-900)" }}>
+                    {ind.name}
                   </div>
-                  <div className={`text-sm font-medium text-right ${ind.noFacData ? "text-gray-400" : textColor}`}>
+                  <div
+                    className="relative h-5 rounded overflow-visible"
+                    style={{ background: "var(--bg-cream)" }}
+                  >
+                    <div
+                      className="absolute inset-y-1 left-0 rounded transition-all"
+                      style={{ width: `${natW}%`, background: "var(--line-strong)", opacity: 0.55 }}
+                    />
+                    <div
+                      className="absolute inset-y-1 left-0 rounded transition-all"
+                      style={{ width: `${facW}%`, background: statusFill(status), opacity: 0.95 }}
+                    />
+                    <div
+                      className="absolute top-0 w-0.5 h-5 rounded-full"
+                      style={{ left: `${medPos}%`, background: "var(--ink-500)", opacity: 0.5 }}
+                    />
+                  </div>
+                  <div
+                    className="text-sm font-medium text-right"
+                    style={{ color: ind.noFacData ? "var(--ink-500)" : statusColor(status) }}
+                  >
                     {ind.noFacData ? "—" : `${ind.fac}${ind.unit}`}
                   </div>
-                  <div className="text-sm text-gray-500 text-right">{ind.nat}{ind.unit}</div>
-                  <div className={`text-xs font-semibold text-right ${pctColor}`}>{pct.label}</div>
+                  <div className="text-sm text-right" style={{ color: "var(--ink-500)" }}>
+                    {ind.nat}
+                    {ind.unit}
+                  </div>
+                  <div className="text-xs font-semibold text-right" style={{ color: statusColor(pct.cls) }}>
+                    {pct.label}
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          {/* AIHW note */}
-          <div className="flex items-start gap-2 mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100 text-xs text-gray-500">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+          <div
+            className="flex items-start gap-2 mt-4 p-3 text-xs"
+            style={{
+              background: "var(--bg-paper)",
+              border: "1px solid var(--line-soft)",
+              borderRadius: 10,
+              color: "var(--ink-500)",
+            }}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0 mt-0.5"
+            >
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             <span>
               National medians sourced from AIHW QI Program national report. Lower rates are better for most indicators. Consumer experience, Quality of life, Workforce and Enrolled nursing are scored higher = better.
-              {hasRealData ? " Facility rates computed from your uploaded QI data." : " Upload a CSV to see your facility rates compared against national medians."}
+              {hasRealData
+                ? " Facility rates computed from your uploaded QI data."
+                : " Upload a CSV to see your facility rates compared against national medians."}
             </span>
           </div>
         </div>
 
-        {/* Bottom charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-            <h3 className="text-base font-semibold text-gray-800 mb-1">Facility percentile trend</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Overall ranking vs national peer group{quarterLabels.length > 0 ? ` — ${quarterLabels.length} quarters` : ""}
+          <div className="cd-surface p-6">
+            <h3
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 18,
+                color: "var(--ink-900)",
+                marginBottom: 4,
+              }}
+            >
+              Facility percentile trend
+            </h3>
+            <p className="text-sm mb-4" style={{ color: "var(--ink-500)" }}>
+              Overall ranking vs national peer group
+              {quarterLabels.length > 0 ? `,${quarterLabels.length} quarters` : ""}
             </p>
             {percentileTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={percentileTrend} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                  <YAxis domain={[30, 80]} tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="facility" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} name="Facility percentile" />
-                  <Line type="monotone" dataKey="national" stroke="#9ca3af" strokeDasharray="4 4" strokeWidth={2} dot={false} name="National median (50th)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <XAxis dataKey="name" tick={axisTickStyle} stroke={CHART_GRID} />
+                  <YAxis domain={[30, 80]} tick={axisTickStyle} stroke={CHART_GRID} />
+                  <Tooltip {...tooltipStyle} />
+                  <Legend wrapperStyle={legendStyle} />
+                  <Line
+                    type="monotone"
+                    dataKey="facility"
+                    stroke={CHART_PALETTE[0]}
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: CHART_PALETTE[0] }}
+                    name="Facility percentile"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="national"
+                    stroke={CHART_PALETTE[3]}
+                    strokeDasharray="4 4"
+                    strokeWidth={2}
+                    dot={false}
+                    name="National median (50th)"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">
+              <div className="h-[220px] flex items-center justify-center text-sm" style={{ color: "var(--ink-500)" }}>
                 Upload QI data to see percentile trend
               </div>
             )}
           </div>
-          <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-            <h3 className="text-base font-semibold text-gray-800 mb-1">Above / below national by indicator</h3>
-            <p className="text-sm text-gray-500 mb-4">Difference from national median — positive = worse than national</p>
+          <div className="cd-surface p-6">
+            <h3
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 18,
+                color: "var(--ink-900)",
+                marginBottom: 4,
+              }}
+            >
+              Above / below national by indicator
+            </h3>
+            <p className="text-sm mb-4" style={{ color: "var(--ink-500)" }}>
+              Difference from national median, positive = worse than national
+            </p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={diffData} margin={{ top: 5, right: 5, left: 5, bottom: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={60} stroke="#9ca3af" />
-                <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                <XAxis
+                  dataKey="name"
+                  tick={axisTickStyle}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                  stroke={CHART_GRID}
+                />
+                <YAxis tick={axisTickStyle} stroke={CHART_GRID} />
+                <Tooltip {...tooltipStyle} />
                 <Bar dataKey="diff" name="Diff from national (%)" radius={4}>
                   {diffData.map((entry, index) => (
-                    <Cell key={index} fill={entry.diff > 0 ? "#dc2626" : "#16a34a"} />
+                    <Cell key={index} fill={entry.diff > 0 ? STATUS.bad : STATUS.good} />
                   ))}
                 </Bar>
               </BarChart>

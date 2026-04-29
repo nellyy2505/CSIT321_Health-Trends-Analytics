@@ -1,10 +1,10 @@
 /**
- * VoiceAlertsFeed — displays unacknowledged voice biomarker alerts.
+ * VoiceAlertsFeed, displays unacknowledged voice biomarker alerts.
  *
  * Props:
- *   alerts          — array of alert objects from API
- *   onAcknowledge   — async (analysisId) => void
- *   loading         — boolean
+ *   alerts         , array of alert objects from API
+ *   onAcknowledge  , async (analysisId) => void
+ *   loading        , boolean
  */
 export default function VoiceAlertsFeed({ alerts = [], onAcknowledge, loading = false }) {
   if (loading) {
@@ -62,7 +62,7 @@ export default function VoiceAlertsFeed({ alerts = [], onAcknowledge, loading = 
                 <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
                   {alert.narrative_report
                     ? alert.narrative_report.slice(0, 120) + (alert.narrative_report.length > 120 ? "..." : "")
-                    : `${alert.alert_level.toUpperCase()} alert — voice biomarker deviation detected.`}
+                    : `${alert.alert_level.toUpperCase()} alert, voice biomarker deviation detected.`}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {formatDate(alert.created_at)} · Confidence: {alert.confidence || "low"}

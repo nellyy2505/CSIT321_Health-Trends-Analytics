@@ -8,7 +8,7 @@ export default function WhyChooseUs() {
     },
     {
       title: "AI-Powered Screening",
-      desc: "Voice biomarker analysis detects early signs of cognitive decline, stroke risk, and depression from 30-second recordings — no specialist equipment required."
+      desc: "Voice biomarker analysis detects early signs of cognitive decline, stroke risk, and depression from 30-second recordings, no specialist equipment required."
     },
     {
       title: "National Benchmarking",
