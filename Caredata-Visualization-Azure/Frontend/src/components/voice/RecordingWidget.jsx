@@ -1,13 +1,13 @@
 /**
- * RecordingWidget — accessible voice recording component.
+ * RecordingWidget, accessible voice recording component.
  *
  * Uses browser MediaRecorder API to capture audio, converts to WAV via
  * AudioContext for backend compatibility. Large UI elements for elderly users.
  *
  * Props:
- *   prompt     — { id, type, text } prompt object to display
- *   onUpload   — async (wavBlob) => void — called when user confirms upload
- *   disabled   — boolean — disable recording
+ *   prompt    , { id, type, text } prompt object to display
+ *   onUpload  , async (wavBlob) => void, called when user confirms upload
+ *   disabled  , boolean, disable recording
  */
 import { useState, useRef, useCallback, useEffect } from "react";
 

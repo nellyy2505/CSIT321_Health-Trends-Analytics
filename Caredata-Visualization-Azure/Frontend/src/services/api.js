@@ -220,7 +220,7 @@ export const getResidentHistory = async (residentId) => {
 
 // ─── GPMS API ───────────────────────────────────────────────────────────────
 
-/** List all GPMS submission dates (light — no form data). */
+/** List all GPMS submission dates (light, no form data). */
 export const getGPMSList = async () => {
   const response = await api.get("/api/gpms");
   return response.data;

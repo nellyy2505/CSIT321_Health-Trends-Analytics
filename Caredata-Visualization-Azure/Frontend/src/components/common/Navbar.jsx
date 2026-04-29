@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../../services/api";
+import BrandMark from "./BrandMark";
 
 const NAV_ITEMS = [
   { name: "Dashboard", path: "/dashboard" },
@@ -65,7 +66,6 @@ export default function Navbar() {
     window.location.href = "/";
   };
 
-  // Close user menu on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -76,7 +76,6 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close menus on route change
   useEffect(() => {
     setUserMenuOpen(false);
     setIsOpen(false);
@@ -95,20 +94,33 @@ export default function Navbar() {
   const initial = user?.firstName?.charAt(0)?.toUpperCase() || "U";
 
   return (
-    <nav className="bg-dark fixed top-0 left-0 w-full z-50 text-white">
+    <nav
+      className="fixed top-0 left-0 w-full z-50"
+      style={{
+        background: "var(--bg-paper)",
+        borderBottom: "1px solid var(--line)",
+      }}
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16 relative">
-
-        {/* Left — Logo inline */}
-        <Link to="/" className="flex items-center gap-2 shrink-0 hover:opacity-90 transition">
-          <img src="/favicon.ico" alt="CareData" className="w-7 h-7" />
-          <span className="text-sm font-semibold text-white whitespace-nowrap">CareData</span>
+        {/* Left, brand */}
+        <Link to="/" className="flex items-center gap-2.5 shrink-0 hover:opacity-90 transition">
+          <BrandMark size={28} />
+          <span className="flex flex-col leading-none">
+            <span className="text-[15px] font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>
+              CareData
+            </span>
+            <span className="text-[11px] font-normal mt-[2px]" style={{ color: "var(--ink-500)" }}>
+              Health Analytics Portal
+            </span>
+          </span>
         </Link>
 
         {/* Mobile hamburger */}
         {user && (
           <button
             type="button"
-            className="sm:hidden text-white focus:outline-none p-2 shrink-0"
+            className="sm:hidden focus:outline-none p-2 shrink-0"
+            style={{ color: "var(--ink-900)" }}
             onClick={() => setIsOpen(!isOpen)}
             aria-label="Menu"
           >
@@ -116,57 +128,94 @@ export default function Navbar() {
           </button>
         )}
 
-        {/* Center + Right */}
-        <div className={`${user ? (isOpen ? "flex" : "hidden") : "flex"} sm:flex flex-col sm:flex-row sm:items-center sm:ml-auto gap-4 sm:gap-0`}>
-
+        <div
+          className={`${user ? (isOpen ? "flex" : "hidden") : "flex"} sm:flex flex-col sm:flex-row sm:items-center sm:ml-auto gap-4 sm:gap-0`}
+        >
           {user ? (
             <>
-              {/* Center — Nav links (absolutely centered on viewport) */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1
-                sm:absolute sm:left-1/2 sm:-translate-x-1/2">
-                {NAV_ITEMS.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setIsOpen(false)}
-                    className={`px-3 py-1.5 text-sm font-medium transition-all whitespace-nowrap ${
-                      isActive(item.path)
-                        ? "text-white border-b-2 border-primary"
-                        : "text-white/50 hover:text-white border-b-2 border-transparent hover:border-primary/60"
-                    }`}
-                  >
-                    {item.name}
-                  </Link>
-                ))}
+              {/* Center, nav links */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1 sm:absolute sm:left-1/2 sm:-translate-x-1/2">
+                {NAV_ITEMS.map((item) => {
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setIsOpen(false)}
+                      className="px-3 py-1.5 text-sm font-medium transition-all whitespace-nowrap rounded-md"
+                      style={
+                        active
+                          ? { background: "var(--ink-900)", color: "var(--bg-paper)" }
+                          : { color: "var(--ink-700)" }
+                      }
+                      onMouseEnter={(e) => {
+                        if (!active) e.currentTarget.style.background = "var(--bg-cream)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active) e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      {item.name}
+                    </Link>
+                  );
+                })}
               </div>
 
-              {/* Right — User dropdown */}
+              {/* Right, user dropdown */}
               <div className="relative shrink-0" ref={userMenuRef}>
                 <button
                   type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 hover:opacity-80 transition"
                 >
-                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-primary">{initial}</span>
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{
+                      background: "var(--bg-sage-tint)",
+                      color: "var(--sage-ink)",
+                      border: "1px solid var(--line)",
+                    }}
+                  >
+                    <span className="text-xs font-semibold">{initial}</span>
                   </div>
-                  <span className="text-sm font-medium text-white/70 whitespace-nowrap">{user.firstName || "User"}</span>
-                  <svg className={`w-3.5 h-3.5 text-white/40 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <span className="text-sm font-medium whitespace-nowrap" style={{ color: "var(--ink-700)" }}>
+                    {user.firstName || "User"}
+                  </span>
+                  <svg
+                    className={`w-3.5 h-3.5 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+                    style={{ color: "var(--ink-500)" }}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-40 bg-dark border border-white/10 rounded-md shadow-lg py-1 z-50">
+                  <div
+                    className="absolute right-0 mt-2 w-44 rounded-lg py-1 z-50"
+                    style={{
+                      background: "var(--bg-white)",
+                      border: "1px solid var(--line)",
+                      boxShadow: "var(--shadow-sm)",
+                    }}
+                  >
                     <button
-                      onClick={() => { navigate("/settings"); setUserMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition"
+                      onClick={() => {
+                        navigate("/settings");
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm font-medium transition"
+                      style={{ color: "var(--ink-700)" }}
                     >
                       Settings
                     </button>
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm font-medium text-white/40 hover:text-white hover:bg-white/5 transition"
+                      className="w-full text-left px-4 py-2 text-sm font-medium transition"
+                      style={{ color: "var(--ink-500)" }}
                     >
                       Log out
                     </button>
@@ -179,13 +228,13 @@ export default function Navbar() {
               <Link
                 to="/login"
                 onClick={() => setIsOpen(false)}
-                className="text-sm font-semibold text-primary hover:text-primary-hover transition whitespace-nowrap"
+                className="text-sm font-semibold transition whitespace-nowrap"
+                style={{ color: "var(--ink-900)" }}
               >
                 Sign In
               </Link>
             </div>
           )}
-
         </div>
       </div>
     </nav>

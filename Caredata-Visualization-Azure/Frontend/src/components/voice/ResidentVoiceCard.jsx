@@ -1,12 +1,12 @@
 /**
- * ResidentVoiceCard — summary card for a resident's voice biomarker status.
+ * ResidentVoiceCard, summary card for a resident's voice biomarker status.
  *
  * Shows name, alert level dot, recording count, metrics, and link status.
  *
  * Props:
- *   resident — { profile_id, resident_id, display_name, recording_count, baseline_established, latest_analysis }
- *   onViewHistory — (residentId) => void
- *   hasLink — boolean — whether resident has an active recording link
+ *   resident, { profile_id, resident_id, display_name, recording_count, baseline_established, latest_analysis }
+ *   onViewHistory, (residentId) => void
+ *   hasLink, boolean, whether resident has an active recording link
  */
 
 const ALERT_COLORS = {

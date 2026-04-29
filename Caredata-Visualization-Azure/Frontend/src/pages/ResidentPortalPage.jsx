@@ -1,11 +1,12 @@
 /**
- * ResidentPortalPage — Resident-authenticated portal to view, play, and delete recordings.
+ * ResidentPortalPage, Resident-authenticated portal to view, play, and delete recordings.
  *
  * Minimal UI (no Navbar), accessible design. Uses resident_token from localStorage.
  */
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { listRecordings, deleteRecording } from "../services/voiceApi";
+import BrandMark from "../components/common/BrandMark";
 
 export default function ResidentPortalPage() {
   const navigate = useNavigate();
@@ -65,19 +66,34 @@ export default function ResidentPortalPage() {
     }
   };
 
+  const statusColor = (s) =>
+    s === "analyzed" ? "var(--sage-ink)" : s === "failed" ? "var(--clay-ink)" : "var(--amber)";
+
   return (
-    <div className="min-h-screen bg-white px-6 py-12">
-      {/* Header */}
+    <div className="min-h-screen px-6 py-12" style={{ background: "var(--bg-cream)" }}>
       <div className="max-w-xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-10">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Recordings</h1>
-            <p className="text-lg text-gray-500 mt-1">CareData Voice Health Check</p>
+          <div className="flex items-center gap-3">
+            <BrandMark size={36} />
+            <div>
+              <h1
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 30,
+                  color: "var(--ink-900)",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.1,
+                }}
+              >
+                My Recordings
+              </h1>
+              <p style={{ fontSize: 14, color: "var(--ink-500)", marginTop: 2 }}>
+                CareData Voice Health Check
+              </p>
+            </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-5 py-2 text-lg text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
-          >
+          <button onClick={handleLogout} className="cd-btn cd-btn-ghost">
             Log out
           </button>
         </div>
@@ -85,21 +101,42 @@ export default function ResidentPortalPage() {
         {/* Loading */}
         {loading && (
           <div className="text-center py-12">
-            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-lg text-gray-500 mt-4">Loading recordings...</p>
+            <div
+              className="w-10 h-10 rounded-full animate-spin mx-auto"
+              style={{
+                border: "3px solid var(--line)",
+                borderTopColor: "var(--sage-ink)",
+              }}
+            />
+            <p className="mt-4" style={{ fontSize: 16, color: "var(--ink-500)" }}>
+              Loading recordings...
+            </p>
           </div>
         )}
 
         {/* Error */}
         {error && (
-          <p className="text-lg text-red-600 text-center py-8">{error}</p>
+          <div
+            className="text-center py-8 cd-surface"
+            style={{ background: "var(--bg-clay-tint)" }}
+          >
+            <p style={{ fontSize: 16, color: "var(--clay-ink)" }}>{error}</p>
+          </div>
         )}
 
         {/* Empty state */}
         {!loading && !error && recordings.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-2xl text-gray-400">No recordings yet.</p>
-            <p className="text-lg text-gray-400 mt-2">
+          <div className="cd-surface text-center py-12">
+            <p
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 24,
+                color: "var(--ink-700)",
+              }}
+            >
+              No recordings yet.
+            </p>
+            <p className="mt-2" style={{ fontSize: 16, color: "var(--ink-500)" }}>
               Use your recording link to make your first voice recording.
             </p>
           </div>
@@ -111,32 +148,39 @@ export default function ResidentPortalPage() {
             {recordings.map((rec) => (
               <div
                 key={rec.recording_id}
-                className="bg-gray-50 border border-gray-200 rounded-xl p-6 flex items-center justify-between"
+                className="cd-surface p-6 flex items-center justify-between"
               >
                 <div>
-                  <p className="text-xl font-medium text-gray-900">
+                  <p
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 500,
+                      color: "var(--ink-900)",
+                    }}
+                  >
                     {formatDate(rec.created_at)}
                   </p>
-                  <p className="text-lg text-gray-500">
+                  <p style={{ fontSize: 15, color: "var(--ink-500)", marginTop: 4 }}>
                     {rec.duration_s ? `${Math.round(rec.duration_s)}s` : "Unknown duration"}
                     {" · "}
-                    <span
-                      className={
-                        rec.status === "analyzed"
-                          ? "text-green-600"
-                          : rec.status === "failed"
-                          ? "text-red-500"
-                          : "text-amber-500"
-                      }
-                    >
+                    <span style={{ color: statusColor(rec.status), fontWeight: 500 }}>
                       {rec.status}
                     </span>
                   </p>
                 </div>
                 <button
                   onClick={() => handleDelete(rec.recording_id)}
-                  className="px-4 py-2 text-lg text-red-600 border border-red-200 rounded-lg
-                             hover:bg-red-50 transition-colors"
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: "var(--clay-ink)",
+                    background: "var(--bg-clay-tint)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    transition: "all .15s ease",
+                  }}
                 >
                   Delete
                 </button>

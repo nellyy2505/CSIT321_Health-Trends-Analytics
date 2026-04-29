@@ -105,18 +105,29 @@ export default function UploadedHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar active="My Data" />
 
       <main className="flex flex-grow pt-32 pb-12 px-4 sm:px-6 max-w-[1280px] mx-auto gap-6">
         <MyDataSidebar activePage="Uploaded History" />
 
-        <div className="flex-1 bg-white rounded-2xl shadow p-8 border border-gray-200">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-4">
-            Uploaded History
+        <div className="flex-1 cd-surface p-8">
+          <span className="cd-chip mb-3" style={{ display: "inline-flex" }}>
+            <span className="dot" /> History
+          </span>
+          <h1
+            className="mb-3"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: 30,
+              color: "var(--ink-900)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Uploaded history
           </h1>
-          <p className="text-gray-600 mb-10">
-            History of CSV uploads (Upload Data) and Health Scan records. Same layout as Dashboard. View time, kind, images, and CSV filename below.
+          <p className="mb-10" style={{ color: "var(--ink-500)", fontSize: 14 }}>
+            History of CSV uploads and Health Scan records. View time, kind, images, and CSV filename below.
           </p>
 
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -125,7 +136,19 @@ export default function UploadedHistoryPage() {
                 type="button"
                 onClick={handleClearAll}
                 disabled={clearing}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-medium hover:bg-red-100 transition disabled:opacity-50"
+                className="inline-flex items-center gap-2"
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 10,
+                  background: "var(--bg-clay-tint)",
+                  border: "1px solid var(--line)",
+                  color: "var(--clay-ink)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: clearing ? "not-allowed" : "pointer",
+                  opacity: clearing ? 0.5 : 1,
+                  transition: "all .15s ease",
+                }}
               >
                 <RotateCcw size={16} />
                 {clearing ? "Clearing…" : "Clear all history"}
@@ -134,57 +157,102 @@ export default function UploadedHistoryPage() {
           </div>
 
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            <div
+              className="mb-4 px-4 py-3"
+              style={{
+                background: "var(--bg-clay-tint)",
+                border: "1px solid var(--line)",
+                borderRadius: 10,
+                color: "var(--clay-ink)",
+                fontSize: 13,
+              }}
+            >
               {error}
             </div>
           )}
 
           {loading && (
-            <p className="text-center text-gray-500 text-sm mb-6">Loading…</p>
+            <p className="text-center mb-6" style={{ fontSize: 13, color: "var(--ink-500)" }}>
+              Loading…
+            </p>
           )}
 
           {!loading && merged.length === 0 && (
-            <div className="py-12 text-center text-gray-500">
-              <p className="text-sm">No uploads or scans in history.</p>
-              <p className="text-sm mt-1">Upload a CSV (Upload Data) or run a Health Scan; they will appear here once saved.</p>
+            <div className="py-12 text-center" style={{ color: "var(--ink-500)" }}>
+              <p style={{ fontSize: 14 }}>No uploads or scans in history.</p>
+              <p className="mt-1" style={{ fontSize: 13 }}>
+                Upload a CSV or run a Health Scan; they will appear here once saved.
+              </p>
             </div>
           )}
 
           {!loading && merged.length > 0 && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">History table</h3>
-              <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-100 text-gray-700">
+            <div
+              className="p-4"
+              style={{
+                background: "var(--bg-paper)",
+                border: "1px solid var(--line-soft)",
+                borderRadius: 12,
+              }}
+            >
+              <h3
+                className="mb-3"
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 18,
+                  color: "var(--ink-900)",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                History table
+              </h3>
+              <div
+                className="overflow-x-auto"
+                style={{
+                  background: "var(--bg-white)",
+                  border: "1px solid var(--line-soft)",
+                  borderRadius: 10,
+                }}
+              >
+                <table className="cd-table w-full text-sm text-left">
+                  <thead>
                     <tr>
-                      <th className="px-4 py-3 font-medium">Time</th>
-                      <th className="px-4 py-3 font-medium w-24">Kind</th>
-                      <th className="px-4 py-3 font-medium w-24">Images</th>
-                      <th className="px-4 py-3 font-medium">CSV uploaded</th>
-                      <th className="px-4 py-3 font-medium w-24 text-right">Delete</th>
+                      <th className="px-4 py-3">Time</th>
+                      <th className="px-4 py-3 w-24">Kind</th>
+                      <th className="px-4 py-3 w-24">Images</th>
+                      <th className="px-4 py-3">CSV uploaded</th>
+                      <th className="px-4 py-3 w-24 text-right">Delete</th>
                     </tr>
                   </thead>
                   <tbody>
                     {merged.map((item) => (
-                      <tr key={`${item.type}-${item.id}`} className="border-t border-gray-200 hover:bg-gray-50">
-                        <td className="px-4 py-3 text-gray-600">
+                      <tr key={`${item.type}-${item.id}`}>
+                        <td className="px-4 py-3" style={{ color: "var(--ink-700)" }}>
                           {formatDate(item.date)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5 text-gray-900 font-medium">
+                          <span
+                            className="inline-flex items-center gap-1.5"
+                            style={{ color: "var(--ink-900)", fontWeight: 500 }}
+                          >
                             {item.type === "csv" ? (
-                              <><FileSpreadsheet size={16} className="text-primary" /> CSV</>
+                              <><FileSpreadsheet size={16} style={{ color: "var(--sage-ink)" }} /> CSV</>
                             ) : (
-                              <><Scan size={16} className="text-primary" /> Health Scan</>
+                              <><Scan size={16} style={{ color: "var(--blue-ink)" }} /> Health Scan</>
                             )}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-600">
+                        <td className="px-4 py-3" style={{ color: "var(--ink-700)" }}>
                           {item.type === "health_scan" ? `${item.imageCount} image(s)` : "—"}
                         </td>
-                        <td className="px-4 py-3 text-gray-900 font-medium">
+                        <td className="px-4 py-3" style={{ color: "var(--ink-900)", fontWeight: 500 }}>
                           {item.type === "csv" ? (
-                            <span className="truncate max-w-[200px] inline-block align-bottom" title={item.filename}>{item.filename}</span>
+                            <span
+                              className="truncate max-w-[200px] inline-block align-bottom"
+                              title={item.filename}
+                            >
+                              {item.filename}
+                            </span>
                           ) : (
                             "—"
                           )}
@@ -194,7 +262,13 @@ export default function UploadedHistoryPage() {
                             type="button"
                             onClick={() => handleRemove(item)}
                             disabled={deletingKey === `${item.type}:${item.id}`}
-                            className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 disabled:opacity-50"
+                            className="inline-flex items-center gap-1"
+                            style={{
+                              color: "var(--clay-ink)",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              opacity: deletingKey === `${item.type}:${item.id}` ? 0.5 : 1,
+                            }}
                             title="Delete"
                           >
                             <Trash2 size={16} />

@@ -17,7 +17,7 @@ export default function UploadDocument() {
   return (
     <section className="relative bg-light py-24 overflow-hidden">
       <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
-        {/* Left side — image */}
+        {/* Left side, image */}
         <motion.div
           className="relative flex justify-center items-center"
           variants={fadeUp}
@@ -33,7 +33,7 @@ export default function UploadDocument() {
           />
         </motion.div>
 
-        {/* Right side — text */}
+        {/* Right side, text */}
         <motion.div
           className="text-left"
           variants={fadeUp}

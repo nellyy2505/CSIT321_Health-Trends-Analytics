@@ -31,8 +31,8 @@ const GPMS_SECTIONS = [
     desc: "Percentage of individuals with one or more pressure injuries, reported against six stages",
     fields: [
       { key: "pi_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "pi_excl_consent", label: "Excluded — withheld consent", type: "int" },
-      { key: "pi_excl_absent", label: "Excluded — absent entire period", type: "int" },
+      { key: "pi_excl_consent", label: "Excluded, withheld consent", type: "int" },
+      { key: "pi_excl_absent", label: "Excluded, absent entire period", type: "int" },
       { key: "pi_any", label: "Individuals with ≥1 PI (any stage)", type: "int", required: true },
       { key: "pi_s1", label: "Stage 1 Pressure Injury", type: "int" },
       { key: "pi_s2", label: "Stage 2 Pressure Injury", type: "int" },
@@ -41,12 +41,12 @@ const GPMS_SECTIONS = [
       { key: "pi_unstage", label: "Unstageable Pressure Injury", type: "int" },
       { key: "pi_dti", label: "Suspected Deep Tissue Injury", type: "int" },
       { key: "pi_acq_outside", label: "PIs acquired outside service", type: "int" },
-      { key: "pi_acq_outside_s1", label: "Acquired outside — Stage 1", type: "int" },
-      { key: "pi_acq_outside_s2", label: "Acquired outside — Stage 2", type: "int" },
-      { key: "pi_acq_outside_s3", label: "Acquired outside — Stage 3", type: "int" },
-      { key: "pi_acq_outside_s4", label: "Acquired outside — Stage 4", type: "int" },
-      { key: "pi_acq_outside_unstage", label: "Acquired outside — Unstageable", type: "int" },
-      { key: "pi_acq_outside_dti", label: "Acquired outside — Suspected DTI", type: "int" },
+      { key: "pi_acq_outside_s1", label: "Acquired outside, Stage 1", type: "int" },
+      { key: "pi_acq_outside_s2", label: "Acquired outside, Stage 2", type: "int" },
+      { key: "pi_acq_outside_s3", label: "Acquired outside, Stage 3", type: "int" },
+      { key: "pi_acq_outside_s4", label: "Acquired outside, Stage 4", type: "int" },
+      { key: "pi_acq_outside_unstage", label: "Acquired outside, Unstageable", type: "int" },
+      { key: "pi_acq_outside_dti", label: "Acquired outside, Suspected DTI", type: "int" },
     ],
   },
   {
@@ -56,7 +56,7 @@ const GPMS_SECTIONS = [
       { key: "rp_date_start", label: "3-day collection period start date", type: "date" },
       { key: "rp_date_end", label: "3-day collection period end date", type: "date" },
       { key: "rp_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "rp_excl_absent", label: "Excluded — absent entire period", type: "int" },
+      { key: "rp_excl_absent", label: "Excluded, absent entire period", type: "int" },
       { key: "rp_any", label: "Individuals subject to any RP", type: "int", required: true },
       { key: "rp_secure_only", label: "RP exclusively via secure area", type: "int" },
     ],
@@ -65,13 +65,13 @@ const GPMS_SECTIONS = [
     id: "uwl", qiNum: 3, title: "Unplanned weight loss",
     desc: "Significant (≥5%) and consecutive unplanned weight loss",
     fields: [
-      { key: "uwl_total_sig", label: "Total assessed — significant UWL", type: "int", required: true },
-      { key: "uwl_total_con", label: "Total assessed — consecutive UWL", type: "int", required: true },
-      { key: "uwl_excl_consent_sig", label: "Significant: excluded — withheld consent (finishing weight)", type: "int" },
-      { key: "uwl_excl_consent_con", label: "Consecutive: excluded — withheld consent (any weight date)", type: "int" },
-      { key: "uwl_excl_eol", label: "Excluded — end-of-life care", type: "int" },
-      { key: "uwl_excl_weights_sig", label: "Significant: excluded — missing previous or finishing weight", type: "int" },
-      { key: "uwl_excl_weights_con", label: "Consecutive: excluded — missing required weights", type: "int" },
+      { key: "uwl_total_sig", label: "Total assessed, significant UWL", type: "int", required: true },
+      { key: "uwl_total_con", label: "Total assessed, consecutive UWL", type: "int", required: true },
+      { key: "uwl_excl_consent_sig", label: "Significant: excluded, withheld consent (finishing weight)", type: "int" },
+      { key: "uwl_excl_consent_con", label: "Consecutive: excluded, withheld consent (any weight date)", type: "int" },
+      { key: "uwl_excl_eol", label: "Excluded, end-of-life care", type: "int" },
+      { key: "uwl_excl_weights_sig", label: "Significant: excluded, missing previous or finishing weight", type: "int" },
+      { key: "uwl_excl_weights_con", label: "Consecutive: excluded, missing required weights", type: "int" },
       { key: "uwl_sig", label: "Individuals with significant UWL (≥5%)", type: "int", required: true },
       { key: "uwl_con", label: "Individuals with consecutive UWL", type: "int", required: true },
     ],
@@ -81,28 +81,28 @@ const GPMS_SECTIONS = [
     desc: "Falls experienced and falls resulting in major injury",
     fields: [
       { key: "falls_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "falls_excl_absent", label: "Excluded — absent entire period", type: "int" },
+      { key: "falls_excl_absent", label: "Excluded, absent entire period", type: "int" },
       { key: "falls_any", label: "Individuals with ≥1 fall", type: "int", required: true },
       { key: "falls_major", label: "Individuals with fall + major injury", type: "int", required: true },
     ],
   },
   {
-    id: "meds_poly", qiNum: 5, title: "Medication management — Polypharmacy",
+    id: "meds_poly", qiNum: 5, title: "Medication management, Polypharmacy",
     desc: "Percentage of individuals prescribed nine or more medications",
     fields: [
       { key: "poly_date", label: "Collection date", type: "date" },
       { key: "poly_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "poly_excl_hospital", label: "Excluded — admitted in hospital on collection date", type: "int" },
+      { key: "poly_excl_hospital", label: "Excluded, admitted in hospital on collection date", type: "int" },
       { key: "poly_count", label: "Individuals prescribed ≥9 medications", type: "int", required: true },
     ],
   },
   {
-    id: "meds_ap", qiNum: 5, title: "Medication management — Antipsychotics",
+    id: "meds_ap", qiNum: 5, title: "Medication management, Antipsychotics",
     desc: "Percentage of individuals who received antipsychotic medications",
     fields: [
       { key: "ap_date", label: "7-day collection period end date", type: "date" },
       { key: "ap_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "ap_excl_hospital", label: "Excluded — in hospital ≥6 days prior", type: "int" },
+      { key: "ap_excl_hospital", label: "Excluded, in hospital ≥6 days prior", type: "int" },
       { key: "ap_any", label: "Individuals who received an antipsychotic", type: "int", required: true },
       { key: "ap_with_dx", label: "Antipsychotic with psychosis diagnosis", type: "int", required: true },
     ],
@@ -112,9 +112,9 @@ const GPMS_SECTIONS = [
     desc: "Percentage of individuals who experienced a decline in ADL (Barthel Index)",
     fields: [
       { key: "adl_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "adl_excl_eol", label: "Excluded — end-of-life care", type: "int" },
-      { key: "adl_excl_absent", label: "Excluded — absent entire period", type: "int" },
-      { key: "adl_excl_no_prior", label: "Excluded — no prior ADL score", type: "int" },
+      { key: "adl_excl_eol", label: "Excluded, end-of-life care", type: "int" },
+      { key: "adl_excl_absent", label: "Excluded, absent entire period", type: "int" },
+      { key: "adl_excl_no_prior", label: "Excluded, no prior ADL score", type: "int" },
       { key: "adl_zero_prior", label: "Individuals with zero prior score", type: "int" },
       { key: "adl_decline", label: "Individuals with ADL decline (≥1 point)", type: "int", required: true },
     ],
@@ -124,14 +124,14 @@ const GPMS_SECTIONS = [
     desc: "Percentage of individuals who experienced Incontinence Associated Dermatitis (IAD)",
     fields: [
       { key: "ic_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "ic_excl_absent", label: "Excluded — absent entire period", type: "int" },
-      { key: "ic_excl_no_incont", label: "Excluded — no incontinence (not assessed for IAD)", type: "int" },
+      { key: "ic_excl_absent", label: "Excluded, absent entire period", type: "int" },
+      { key: "ic_excl_no_incont", label: "Excluded, no incontinence (not assessed for IAD)", type: "int" },
       { key: "ic_incontinence", label: "Individuals with incontinence", type: "int", required: true },
       { key: "ic_iad_any", label: "Individuals with incontinence and IAD", type: "int", required: true },
-      { key: "ic_iad_1a", label: "IAD Cat 1A — persistent redness, no infection", type: "int" },
-      { key: "ic_iad_1b", label: "IAD Cat 1B — persistent redness, with infection", type: "int" },
-      { key: "ic_iad_2a", label: "IAD Cat 2A — skin loss, no infection", type: "int" },
-      { key: "ic_iad_2b", label: "IAD Cat 2B — skin loss, with infection", type: "int" },
+      { key: "ic_iad_1a", label: "IAD Cat 1A, persistent redness, no infection", type: "int" },
+      { key: "ic_iad_1b", label: "IAD Cat 1B, persistent redness, with infection", type: "int" },
+      { key: "ic_iad_2a", label: "IAD Cat 2A, skin loss, no infection", type: "int" },
+      { key: "ic_iad_2b", label: "IAD Cat 2B, skin loss, with infection", type: "int" },
     ],
   },
   {
@@ -139,38 +139,38 @@ const GPMS_SECTIONS = [
     desc: "ED presentations and hospital admissions",
     fields: [
       { key: "hosp_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "hosp_excl_absent", label: "Excluded — absent entire period", type: "int" },
+      { key: "hosp_excl_absent", label: "Excluded, absent entire period", type: "int" },
       { key: "hosp_ed", label: "Individuals with ≥1 ED presentation", type: "int", required: true },
       { key: "hosp_all", label: "Individuals with ≥1 ED or hospital admission", type: "int", required: true },
     ],
   },
   {
     id: "wf", qiNum: 9, title: "Workforce",
-    desc: "Staff turnover — headcounts by role across 3 steps",
+    desc: "Staff turnover, headcounts by role across 3 steps",
     fields: [
-      { key: "wf_s1_mgr", label: "Step 1 — Service managers (worked any hrs last period)", type: "int" },
-      { key: "wf_s1_rn", label: "Step 1 — RNs / NPs (worked any hrs last period)", type: "int" },
-      { key: "wf_s1_en", label: "Step 1 — ENs (worked any hrs last period)", type: "int" },
-      { key: "wf_s1_pcw", label: "Step 1 — PCW / AINs (worked any hrs last period)", type: "int" },
-      { key: "wf_s2_mgr", label: "Step 2 — Service managers (≥120 hrs, employed at start)", type: "int" },
-      { key: "wf_s2_rn", label: "Step 2 — RNs / NPs (≥120 hrs, employed at start)", type: "int" },
-      { key: "wf_s2_en", label: "Step 2 — ENs (≥120 hrs, employed at start)", type: "int" },
-      { key: "wf_s2_pcw", label: "Step 2 — PCW / AINs (≥120 hrs, employed at start)", type: "int" },
-      { key: "wf_s3_mgr", label: "Step 3 — Service managers stopped (≥60-day gap)", type: "int" },
-      { key: "wf_s3_rn", label: "Step 3 — RNs / NPs stopped (≥60-day gap)", type: "int" },
-      { key: "wf_s3_en", label: "Step 3 — ENs stopped (≥60-day gap)", type: "int" },
-      { key: "wf_s3_pcw", label: "Step 3 — PCW / AINs stopped (≥60-day gap)", type: "int" },
+      { key: "wf_s1_mgr", label: "Step 1, Service managers (worked any hrs last period)", type: "int" },
+      { key: "wf_s1_rn", label: "Step 1, RNs / NPs (worked any hrs last period)", type: "int" },
+      { key: "wf_s1_en", label: "Step 1, ENs (worked any hrs last period)", type: "int" },
+      { key: "wf_s1_pcw", label: "Step 1, PCW / AINs (worked any hrs last period)", type: "int" },
+      { key: "wf_s2_mgr", label: "Step 2, Service managers (≥120 hrs, employed at start)", type: "int" },
+      { key: "wf_s2_rn", label: "Step 2, RNs / NPs (≥120 hrs, employed at start)", type: "int" },
+      { key: "wf_s2_en", label: "Step 2, ENs (≥120 hrs, employed at start)", type: "int" },
+      { key: "wf_s2_pcw", label: "Step 2, PCW / AINs (≥120 hrs, employed at start)", type: "int" },
+      { key: "wf_s3_mgr", label: "Step 3, Service managers stopped (≥60-day gap)", type: "int" },
+      { key: "wf_s3_rn", label: "Step 3, RNs / NPs stopped (≥60-day gap)", type: "int" },
+      { key: "wf_s3_en", label: "Step 3, ENs stopped (≥60-day gap)", type: "int" },
+      { key: "wf_s3_pcw", label: "Step 3, PCW / AINs stopped (≥60-day gap)", type: "int" },
     ],
   },
   {
     id: "cx", qiNum: 10, title: "Consumer experience",
-    desc: "QoCE-ACC assessment — completion methods and score bands",
+    desc: "QoCE-ACC assessment, completion methods and score bands",
     fields: [
-      { key: "cx_completed_self", label: "Completed — self-completion", type: "int" },
-      { key: "cx_completed_interview", label: "Completed — interviewer facilitated", type: "int" },
-      { key: "cx_completed_proxy", label: "Completed — proxy", type: "int" },
-      { key: "cx_excl_absent", label: "Excluded — absent", type: "int" },
-      { key: "cx_excl_optout", label: "Excluded — opted out", type: "int" },
+      { key: "cx_completed_self", label: "Completed, self-completion", type: "int" },
+      { key: "cx_completed_interview", label: "Completed, interviewer facilitated", type: "int" },
+      { key: "cx_completed_proxy", label: "Completed, proxy", type: "int" },
+      { key: "cx_excl_absent", label: "Excluded, absent", type: "int" },
+      { key: "cx_excl_optout", label: "Excluded, opted out", type: "int" },
       { key: "cx_excellent", label: "Score band: Excellent (22–24)", type: "int" },
       { key: "cx_good", label: "Score band: Good (19–21)", type: "int" },
       { key: "cx_moderate", label: "Score band: Moderate (14–18)", type: "int" },
@@ -180,13 +180,13 @@ const GPMS_SECTIONS = [
   },
   {
     id: "qol", qiNum: 11, title: "Quality of life",
-    desc: "QoL-ACC assessment — completion methods and score bands",
+    desc: "QoL-ACC assessment, completion methods and score bands",
     fields: [
-      { key: "qol_completed_self", label: "Completed — self-completion", type: "int" },
-      { key: "qol_completed_interview", label: "Completed — interviewer facilitated", type: "int" },
-      { key: "qol_completed_proxy", label: "Completed — proxy", type: "int" },
-      { key: "qol_excl_absent", label: "Excluded — absent", type: "int" },
-      { key: "qol_excl_optout", label: "Excluded — opted out", type: "int" },
+      { key: "qol_completed_self", label: "Completed, self-completion", type: "int" },
+      { key: "qol_completed_interview", label: "Completed, interviewer facilitated", type: "int" },
+      { key: "qol_completed_proxy", label: "Completed, proxy", type: "int" },
+      { key: "qol_excl_absent", label: "Excluded, absent", type: "int" },
+      { key: "qol_excl_optout", label: "Excluded, opted out", type: "int" },
       { key: "qol_excellent", label: "Score band: Excellent (22–24)", type: "int" },
       { key: "qol_good", label: "Score band: Good (19–21)", type: "int" },
       { key: "qol_moderate", label: "Score band: Moderate (14–18)", type: "int" },
@@ -199,21 +199,21 @@ const GPMS_SECTIONS = [
     desc: "Recommended vs received allied health services by discipline",
     fields: [
       { key: "ah_total", label: "Total individuals assessed", type: "int", required: true },
-      { key: "ah_excl_absent", label: "Excluded — absent entire period", type: "int" },
-      { key: "ah_rec_physio", label: "Physiotherapy — recommended", type: "int" },
-      { key: "ah_rcv_physio", label: "Physiotherapy — received", type: "int" },
-      { key: "ah_rec_ot", label: "Occupational therapy — recommended", type: "int" },
-      { key: "ah_rcv_ot", label: "Occupational therapy — received", type: "int" },
-      { key: "ah_rec_speech", label: "Speech pathology — recommended", type: "int" },
-      { key: "ah_rcv_speech", label: "Speech pathology — received", type: "int" },
-      { key: "ah_rec_pod", label: "Podiatry — recommended", type: "int" },
-      { key: "ah_rcv_pod", label: "Podiatry — received", type: "int" },
-      { key: "ah_rec_diet", label: "Dietetics — recommended", type: "int" },
-      { key: "ah_rcv_diet", label: "Dietetics — received", type: "int" },
-      { key: "ah_rec_assist", label: "AH assistants — recommended", type: "int" },
-      { key: "ah_rcv_assist", label: "AH assistants — received", type: "int" },
-      { key: "ah_rec_other", label: "Other allied health — recommended", type: "int" },
-      { key: "ah_rcv_other", label: "Other allied health — received", type: "int" },
+      { key: "ah_excl_absent", label: "Excluded, absent entire period", type: "int" },
+      { key: "ah_rec_physio", label: "Physiotherapy, recommended", type: "int" },
+      { key: "ah_rcv_physio", label: "Physiotherapy, received", type: "int" },
+      { key: "ah_rec_ot", label: "Occupational therapy, recommended", type: "int" },
+      { key: "ah_rcv_ot", label: "Occupational therapy, received", type: "int" },
+      { key: "ah_rec_speech", label: "Speech pathology, recommended", type: "int" },
+      { key: "ah_rcv_speech", label: "Speech pathology, received", type: "int" },
+      { key: "ah_rec_pod", label: "Podiatry, recommended", type: "int" },
+      { key: "ah_rcv_pod", label: "Podiatry, received", type: "int" },
+      { key: "ah_rec_diet", label: "Dietetics, recommended", type: "int" },
+      { key: "ah_rcv_diet", label: "Dietetics, received", type: "int" },
+      { key: "ah_rec_assist", label: "AH assistants, recommended", type: "int" },
+      { key: "ah_rcv_assist", label: "AH assistants, received", type: "int" },
+      { key: "ah_rec_other", label: "Other allied health, recommended", type: "int" },
+      { key: "ah_rcv_other", label: "Other allied health, received", type: "int" },
     ],
   },
 ];
@@ -264,7 +264,7 @@ function buildGovTemplateWorkbook(formData) {
     });
     const ws = XLSX.utils.aoa_to_sheet([
       [section.title.toUpperCase()],
-      [`QI ${section.qiNum} — ${section.desc}`],
+      [`QI ${section.qiNum}, ${section.desc}`],
       [],
       ["DATA FOR GPMS REPORTING"],
       header,
@@ -592,8 +592,20 @@ export default function UploadCSVPage() {
   // ─── Sidebar ────────────────────────────────────────────────────────────
 
   const sidebar = (
-    <aside className="shrink-0 w-56 bg-white border border-gray-200 rounded-xl shadow-sm p-3 self-start sticky top-28">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">Data Entry</p>
+    <aside
+      className="shrink-0 w-60 p-3 self-start sticky top-24"
+      style={{
+        background: "var(--bg-white)",
+        border: "1px solid var(--line)",
+        borderRadius: "var(--r-lg)",
+      }}
+    >
+      <p
+        className="text-[11px] uppercase px-3 pt-1 pb-2"
+        style={{ color: "var(--ink-500)", fontWeight: 600, letterSpacing: "0.08em" }}
+      >
+        Data Entry
+      </p>
       <ul className="space-y-0.5">
         {SIDEBAR_ITEMS.map(item => {
           const isActive = activeTab === item.id;
@@ -602,11 +614,20 @@ export default function UploadCSVPage() {
               <button
                 type="button"
                 onClick={() => handleTabSwitch(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition text-left ${
-                  isActive ? "bg-primary text-white shadow-sm" : "text-gray-700 hover:bg-gray-100"
-                }`}
+                className="w-full flex items-center gap-2.5 transition text-left"
+                style={{
+                  padding: "9px 12px",
+                  fontSize: 14,
+                  borderRadius: 10,
+                  color: isActive ? "var(--ink-900)" : "var(--ink-700)",
+                  background: isActive ? "var(--bg-sage-tint)" : "transparent",
+                  fontWeight: isActive ? 500 : 400,
+                  boxShadow: isActive ? "inset 0 0 0 1px var(--sage)" : "none",
+                }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--bg-cream)"; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
               >
-                <span className={isActive ? "text-white" : "text-gray-500"}>{item.icon}</span>
+                <span style={{ color: isActive ? "var(--sage-ink)" : "var(--ink-500)" }}>{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
               </button>
             </li>
@@ -614,18 +635,32 @@ export default function UploadCSVPage() {
         })}
       </ul>
 
-      {/* Form progress (visible on Manual Entry and Download tabs) */}
       {(activeTab === "manual" || activeTab === "download") && (
-        <div className="mt-4 px-2 pt-3 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Form progress</p>
-          <div className="w-full bg-gray-100 rounded-full h-2 mb-1.5">
+        <div className="mt-4 px-3 pt-3" style={{ borderTop: "1px solid var(--line-soft)" }}>
+          <p
+            className="text-[11px] uppercase mb-2"
+            style={{ color: "var(--ink-500)", fontWeight: 600, letterSpacing: "0.08em" }}
+          >
+            Form progress
+          </p>
+          <div
+            className="w-full rounded-full h-1.5 mb-2"
+            style={{ background: "var(--bg-cream)", border: "1px solid var(--line-soft)" }}
+          >
             <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${ALL_FIELD_KEYS.length ? (filledCount / ALL_FIELD_KEYS.length) * 100 : 0}%` }}
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${ALL_FIELD_KEYS.length ? (filledCount / ALL_FIELD_KEYS.length) * 100 : 0}%`,
+                background: "var(--sage)",
+              }}
             />
           </div>
-          <p className="text-xs text-gray-500">{filledCount} / {ALL_FIELD_KEYS.length} fields</p>
-          <p className="text-xs text-gray-500 mt-0.5">{requiredFilledCount} / {REQUIRED_KEYS.length} required</p>
+          <p className="text-xs" style={{ color: "var(--ink-500)" }}>
+            {filledCount} / {ALL_FIELD_KEYS.length} fields
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--ink-500)" }}>
+            {requiredFilledCount} / {REQUIRED_KEYS.length} required
+          </p>
         </div>
       )}
     </aside>
@@ -637,101 +672,179 @@ export default function UploadCSVPage() {
     <div className="flex-1 min-w-0 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Upload QI Data</h1>
-        <p className="text-sm text-gray-600">
+        <span className="cd-chip mb-2" style={{ display: "inline-flex" }}>
+          <span className="dot" /> Quarterly intake
+        </span>
+        <h1
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: 30,
+            color: "var(--ink-900)",
+            letterSpacing: "-0.01em",
+            marginTop: 8,
+            marginBottom: 4,
+          }}
+        >
+          Upload QI data
+        </h1>
+        <p style={{ color: "var(--ink-500)", fontSize: 14 }}>
           Upload your quarterly CSV from the QI Platform template. Data will be validated and GPMS fields auto-computed.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 items-start">
         {/* LEFT: Upload card */}
-        <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Quarterly CSV upload</h2>
-            <p className="text-sm text-gray-500">Accepted: .csv files — GPMS export or QI Platform template</p>
+        <div className="cd-surface overflow-hidden">
+          <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+            <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-900)" }}>Quarterly CSV upload</h2>
+            <p className="mt-1" style={{ fontSize: 13, color: "var(--ink-500)" }}>
+              Accepted: .csv files, GPMS export or QI Platform template
+            </p>
           </div>
 
           {/* Drop zone */}
           <div
-            className={`mx-5 mt-5 border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition bg-gray-50 ${
-              dragOver ? "border-primary bg-primary-light" : file ? "border-primary border-solid bg-primary-light/50" : "border-gray-300 hover:border-primary/40"
-            }`}
+            className="mx-5 mt-5 text-center cursor-pointer transition"
+            style={{
+              border: `2px dashed ${dragOver || file ? "var(--sage)" : "var(--line-strong)"}`,
+              borderStyle: file && !dragOver ? "solid" : "dashed",
+              borderRadius: "var(--r-md)",
+              padding: 40,
+              background: dragOver || file ? "var(--bg-sage-tint)" : "var(--bg-paper)",
+            }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => document.getElementById("file-input")?.click()}
           >
             <input id="file-input" type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
-            <div className="w-12 h-12 rounded-xl bg-primary-light flex items-center justify-center mx-auto mb-3">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-primary">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
+              style={{ background: "var(--bg-sage-tint)", border: "1px solid var(--line)" }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" style={{ color: "var(--sage-ink)" }}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
               </svg>
             </div>
-            <div className="text-base font-semibold text-gray-900 mb-1">Drag and drop your CSV here</div>
-            <div className="text-sm text-gray-500 mb-4 leading-relaxed">or click to browse.<br />One file per quarterly submission.</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-900)", marginBottom: 4 }}>
+              Drag and drop your CSV here
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink-500)", marginBottom: 14, lineHeight: 1.5 }}>
+              or click to browse.<br />One file per quarterly submission.
+            </div>
             <button
               type="button"
-              className="bg-primary text-white text-sm font-semibold py-2.5 px-5 rounded-lg hover:bg-primary-hover transition"
+              className="cd-btn cd-btn-primary"
               onClick={(e) => { e.stopPropagation(); document.getElementById("file-input")?.click(); }}
-            >Browse files</button>
-            <div className="text-sm text-gray-500 mt-3">Supported: .csv  Max: {MAX_SIZE_MB} MB</div>
+            >
+              Browse files
+            </button>
+            <div className="mt-3" style={{ fontSize: 12, color: "var(--ink-500)" }}>
+              Supported: .csv · Max: {MAX_SIZE_MB} MB
+            </div>
           </div>
 
           {/* File selected */}
           {file && (
-            <div className="mx-5 mt-4 flex items-center gap-3 bg-primary-light/70 border border-primary/20 rounded-lg px-4 py-3">
-              <div className="w-9 h-9 rounded-lg bg-primary-light flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-primary">
+            <div
+              className="mx-5 mt-4 flex items-center gap-3 px-4 py-3"
+              style={{
+                background: "var(--bg-sage-tint)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--r-md)",
+              }}
+            >
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "var(--bg-white)", border: "1px solid var(--line)" }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" style={{ color: "var(--sage-ink)" }}>
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-base font-semibold text-gray-900 truncate">{file.name}</div>
-                <div className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB</div>
+                <div className="truncate" style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-900)" }}>{file.name}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-500)" }}>{(file.size / 1024).toFixed(1)} KB</div>
               </div>
-              <button type="button" onClick={(e) => { e.stopPropagation(); removeFile(); }} className="text-gray-400 hover:text-red-500 text-lg leading-none p-1">x</button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); removeFile(); }}
+                className="text-lg leading-none p-1"
+                style={{ color: "var(--ink-500)" }}
+              >
+                ×
+              </button>
             </div>
           )}
 
           {/* Error */}
           {error && (
-            <div className="mx-5 mt-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
+            <div
+              className="mx-5 mt-4 px-4 py-3 text-sm"
+              style={{
+                background: "var(--bg-clay-tint)",
+                border: "1px solid var(--line)",
+                borderLeft: "3px solid var(--clay-ink)",
+                borderRadius: "var(--r-md)",
+                color: "var(--clay-ink)",
+              }}
+            >
+              {error}
+            </div>
           )}
 
           {/* Success + GPMS field summary */}
           {result && (
             <div className="mx-5 mt-4 space-y-3">
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 shrink-0">
+              <div
+                className="flex items-center gap-2 px-4 py-3"
+                style={{
+                  background: "var(--bg-sage-tint)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--r-md)",
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: "var(--sage-ink)" }}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <span className="text-base font-medium text-green-800 flex-1">
+                <span className="flex-1" style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-900)" }}>
                   CSV uploaded and validated successfully.
                 </span>
-                <Link to="/dashboard" className="text-sm font-medium text-primary hover:underline whitespace-nowrap">
+                <Link
+                  to="/dashboard"
+                  className="hover:underline whitespace-nowrap"
+                  style={{ fontSize: 13, fontWeight: 500, color: "var(--sage-ink)" }}
+                >
                   View Dashboard
                 </Link>
               </div>
 
               {/* GPMS field flag summary */}
               {uploadFlagSummary && (
-                <div className="bg-primary-light border border-primary/20 rounded-lg px-4 py-3">
+                <div
+                  className="px-4 py-3"
+                  style={{
+                    background: "var(--bg-blue-tint)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "var(--r-md)",
+                  }}
+                >
                   <div className="flex items-start gap-2">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-primary mt-0.5 shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "var(--blue-ink)" }}>
                       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                       <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-primary">
+                      <p style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-900)" }}>
                         {uploadFlagSummary.filled} of {uploadFlagSummary.total} GPMS fields auto-filled from CSV
                       </p>
-                      <p className="text-xs text-primary/80 mt-0.5">
+                      <p className="mt-0.5" style={{ fontSize: 12, color: "var(--ink-500)" }}>
                         {uploadFlagSummary.unfilled} fields need manual entry (exclusion counts, dates, workforce details, etc.).
-                        Form has been auto-filled — switch to Manual Entry to review and complete.
+                        Form has been auto-filled, switch to Manual Entry to review and complete.
                       </p>
                       {gpmsFromUpload && Object.keys(gpmsFromUpload).length > 1 && (
                         <div className="mt-2 flex items-center gap-2">
-                          <span className="text-xs text-primary/80">Assessment date:</span>
+                          <span style={{ fontSize: 12, color: "var(--ink-500)" }}>Assessment date:</span>
                           <select
                             value={selectedGpmsDate}
                             onChange={e => {
@@ -740,7 +853,6 @@ export default function UploadCSVPage() {
                               const vals = gpmsFromUpload[newDate] || {};
                               const filled = ALL_FIELD_KEYS.filter(k => vals[k] != null && vals[k] !== "").length;
                               setUploadFlagSummary({ filled, unfilled: ALL_FIELD_KEYS.length - filled, total: ALL_FIELD_KEYS.length });
-                              // Re-apply prefill for new date
                               const newForm = {};
                               const filledKeys = new Set();
                               for (const key of ALL_FIELD_KEYS) {
@@ -752,7 +864,13 @@ export default function UploadCSVPage() {
                               setFormData(newForm);
                               setPrefilledKeys(filledKeys);
                             }}
-                            className="text-xs border border-primary/30 rounded px-2 py-1 bg-white text-primary"
+                            className="text-xs px-2 py-1"
+                            style={{
+                              background: "var(--bg-white)",
+                              border: "1px solid var(--line)",
+                              borderRadius: 6,
+                              color: "var(--ink-900)",
+                            }}
                           >
                             {Object.keys(gpmsFromUpload).sort().map(d => (
                               <option key={d} value={d}>{d}</option>
@@ -763,7 +881,8 @@ export default function UploadCSVPage() {
                       <button
                         type="button"
                         onClick={() => { setActiveTab("manual"); setExpandedSections(new Set(GPMS_SECTIONS.map(s => s.id))); }}
-                        className="mt-3 bg-primary text-white text-sm font-semibold py-2 px-4 rounded-lg hover:bg-primary-hover transition"
+                        className="cd-btn cd-btn-primary mt-3"
+                        style={{ padding: "8px 14px", fontSize: 13 }}
                       >
                         Go to Manual Entry (review & complete)
                       </button>
@@ -780,14 +899,28 @@ export default function UploadCSVPage() {
               type="button"
               onClick={handleSubmit}
               disabled={uploading || !file}
-              className={`w-full py-2.5 rounded-md font-medium text-base transition disabled:cursor-not-allowed relative overflow-hidden border-2 ${
-                uploading ? "border-primary bg-white" : "bg-primary text-white border-primary hover:bg-primary-hover"
-              } ${!file ? "opacity-50" : ""}`}
+              className="w-full disabled:cursor-not-allowed relative overflow-hidden transition"
+              style={{
+                padding: "11px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 500,
+                border: "1px solid transparent",
+                background: uploading ? "var(--bg-white)" : "var(--ink-900)",
+                color: uploading ? "var(--ink-900)" : "var(--bg-paper)",
+                borderColor: uploading ? "var(--line)" : "var(--ink-900)",
+                opacity: !file && !uploading ? 0.5 : 1,
+              }}
             >
               {uploading ? (
                 <>
-                  <div className="absolute inset-0 bg-primary transition-all duration-300 ease-out" style={{ width: `${uploadProgress}%` }} />
-                  <span className="relative z-10 text-gray-900">Processing... {Math.round(uploadProgress)}%</span>
+                  <div
+                    className="absolute inset-y-0 left-0 transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%`, background: "var(--bg-sage-tint)" }}
+                  />
+                  <span className="relative z-10" style={{ color: "var(--ink-900)" }}>
+                    Processing… {Math.round(uploadProgress)}%
+                  </span>
                 </>
               ) : "Process & Validate CSV"}
             </button>
@@ -795,53 +928,113 @@ export default function UploadCSVPage() {
         </div>
 
         {/* RIGHT: Submission history */}
-        <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+        <div className="cd-surface overflow-hidden">
+          <div
+            className="px-4 py-3 flex items-center gap-2"
+            style={{ borderBottom: "1px solid var(--line-soft)" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--ink-500)" }}>
               <polyline points="12 8 12 12 14 14" /><path d="M3.05 11a9 9 0 1 1 .5 4" /><polyline points="3 16 3 11 8 11" />
             </svg>
-            <h3 className="text-lg font-semibold text-gray-900">Submission history</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-900)" }}>Submission history</h3>
           </div>
           <div className="p-4">
             {history.length === 0 ? (
-              <p className="text-sm text-gray-500 py-4">No submissions yet. Upload a CSV above.</p>
+              <p className="py-4" style={{ fontSize: 13, color: "var(--ink-500)" }}>
+                No submissions yet. Upload a CSV above.
+              </p>
             ) : (
-              <table className="w-full text-sm table-fixed">
+              <table className="cd-table table-fixed">
                 <thead>
-                  <tr className="text-left text-sm font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                    <th className="pb-2 pr-2 w-[38%]">File</th>
-                    <th className="pb-2 pr-2 w-[22%]">Date</th>
-                    <th className="pb-2 pr-2 w-[18%]">Status</th>
-                    <th className="pb-2 text-right w-[22%]">Actions</th>
+                  <tr>
+                    <th className="w-[38%]">File</th>
+                    <th className="w-[22%]">Date</th>
+                    <th className="w-[18%]">Status</th>
+                    <th className="text-right w-[22%]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {history.map((item) => (
-                    <tr key={item.uploadId} className={`border-b border-gray-100 last:border-0 ${selectedUploadId === item.uploadId ? "bg-primary-light/50" : ""}`}>
-                      <td className="py-2.5 pr-2 text-gray-900 font-medium break-words min-w-0" title={item.filename}>{item.filename || "—"}</td>
-                      <td className="py-2.5 pr-2 text-gray-500 whitespace-nowrap">{formatUploadDate(item.uploadedAt)}</td>
-                      <td className="py-2.5 pr-2">
-                        {selectedUploadId === item.uploadId
-                          ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/20 text-primary">Displaying</span>
-                          : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800">Submitted</span>}
+                    <tr
+                      key={item.uploadId}
+                      style={selectedUploadId === item.uploadId ? { background: "var(--bg-sage-tint)" } : {}}
+                    >
+                      <td className="break-words min-w-0" style={{ fontWeight: 500 }} title={item.filename}>
+                        {item.filename || "—"}
                       </td>
-                      <td className="py-2.5 text-right">
+                      <td className="whitespace-nowrap" style={{ color: "var(--ink-500)" }}>
+                        {formatUploadDate(item.uploadedAt)}
+                      </td>
+                      <td>
+                        {selectedUploadId === item.uploadId ? (
+                          <span
+                            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                            style={{
+                              background: "var(--bg-sage-tint)",
+                              color: "var(--sage-ink)",
+                              border: "1px solid var(--sage)",
+                            }}
+                          >
+                            Displaying
+                          </span>
+                        ) : (
+                          <span
+                            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                            style={{
+                              background: "var(--bg-sage-tint)",
+                              color: "var(--sage-ink)",
+                              border: "1px solid var(--line)",
+                            }}
+                          >
+                            Submitted
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button type="button" onClick={() => handleDownload(item.uploadId, item.filename)} disabled={downloadingId === item.uploadId}
-                            className="p-1.5 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-60" title="Download CSV">
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(item.uploadId, item.filename)}
+                            disabled={downloadingId === item.uploadId}
+                            className="p-1.5 rounded disabled:opacity-60"
+                            style={{
+                              background: "var(--bg-white)",
+                              border: "1px solid var(--line)",
+                              color: "var(--ink-700)",
+                            }}
+                            title="Download CSV"
+                          >
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
                             </svg>
                           </button>
-                          <button type="button" onClick={() => setSelected(selectedUploadId === item.uploadId ? "" : item.uploadId)}
-                            className={`p-1.5 rounded border ${selectedUploadId === item.uploadId ? "bg-primary border-primary text-white" : "border-gray-300 bg-white text-gray-500 hover:bg-primary-light"}`}
-                            title={selectedUploadId === item.uploadId ? "Used for dashboard" : "Use for dashboard"}>
+                          <button
+                            type="button"
+                            onClick={() => setSelected(selectedUploadId === item.uploadId ? "" : item.uploadId)}
+                            className="p-1.5 rounded"
+                            style={
+                              selectedUploadId === item.uploadId
+                                ? { background: "var(--sage-ink)", color: "var(--bg-paper)", border: "1px solid var(--sage-ink)" }
+                                : { background: "var(--bg-white)", color: "var(--ink-500)", border: "1px solid var(--line)" }
+                            }
+                            title={selectedUploadId === item.uploadId ? "Used for dashboard" : "Use for dashboard"}
+                          >
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           </button>
-                          <button type="button" onClick={() => handleDelete(item)} disabled={deletingId === item.uploadId}
-                            className="p-1.5 rounded border border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:opacity-60" title="Delete">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item)}
+                            disabled={deletingId === item.uploadId}
+                            className="p-1.5 rounded disabled:opacity-60"
+                            style={{
+                              background: "var(--bg-white)",
+                              border: "1px solid var(--line)",
+                              color: "var(--clay-ink)",
+                            }}
+                            title="Delete"
+                          >
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
                             </svg>
@@ -864,20 +1057,39 @@ export default function UploadCSVPage() {
   const manualEntryTab = (
     <div className="flex-1 min-w-0 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">GPMS Manual Entry</h1>
-          <p className="text-sm text-gray-600">
+          <span className="cd-chip mb-2" style={{ display: "inline-flex" }}>
+            <span className="dot" /> GPMS aggregates
+          </span>
+          <h1
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: 30,
+              color: "var(--ink-900)",
+              letterSpacing: "-0.01em",
+              marginTop: 8,
+              marginBottom: 4,
+            }}
+          >
+            Manual entry
+          </h1>
+          <p style={{ color: "var(--ink-500)", fontSize: 14 }}>
             Enter aggregate QI data matching the GPMS submission fields. All values are whole numbers unless otherwise noted.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Date selector */}
+        <div className="flex items-center gap-2 flex-wrap">
           {(gpmsDates.length > 0 || selectedGpmsDate) && (
             <select
               value={selectedGpmsDate}
               onChange={(e) => { setSelectedGpmsDate(e.target.value); setPrefillApplied(false); setPrefilledKeys(new Set()); }}
-              className="text-xs text-gray-700 border border-gray-200 rounded px-2 py-1 bg-white"
+              className="text-xs px-2 py-1.5"
+              style={{
+                background: "var(--bg-white)",
+                border: "1px solid var(--line)",
+                borderRadius: 8,
+                color: "var(--ink-900)",
+              }}
             >
               {!selectedGpmsDate && <option value="">Select date</option>}
               {[...new Set([...gpmsDates, ...(selectedGpmsDate ? [selectedGpmsDate] : [])])].sort().map(d => (
@@ -885,34 +1097,68 @@ export default function UploadCSVPage() {
               ))}
             </select>
           )}
-          {gpmsSaving && <span className="text-xs text-gray-400">Saving...</span>}
+          {gpmsSaving && <span className="text-xs" style={{ color: "var(--ink-500)" }}>Saving…</span>}
           {!gpmsSaving && selectedGpmsDate && Object.keys(formData).length > 0 && (
-            <span className="text-xs text-green-600">Saved</span>
+            <span className="text-xs" style={{ color: "var(--sage-ink)" }}>Saved</span>
           )}
-          <button type="button" onClick={() => setExpandedSections(new Set(GPMS_SECTIONS.map(s => s.id)))}
-            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">Expand all</button>
-          <button type="button" onClick={() => setExpandedSections(new Set())}
-            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">Collapse all</button>
-          <button type="button" onClick={clearForm}
-            className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50">Clear form</button>
+          <button
+            type="button"
+            onClick={() => setExpandedSections(new Set(GPMS_SECTIONS.map(s => s.id)))}
+            className="text-xs px-2.5 py-1.5"
+            style={{ background: "var(--bg-white)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-700)" }}
+          >
+            Expand all
+          </button>
+          <button
+            type="button"
+            onClick={() => setExpandedSections(new Set())}
+            className="text-xs px-2.5 py-1.5"
+            style={{ background: "var(--bg-white)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-700)" }}
+          >
+            Collapse all
+          </button>
+          <button
+            type="button"
+            onClick={clearForm}
+            className="text-xs px-2.5 py-1.5"
+            style={{ background: "var(--bg-white)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--clay-ink)" }}
+          >
+            Clear form
+          </button>
         </div>
       </div>
 
       {/* Prefill banner */}
       {prefilledKeys.size > 0 && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 text-sm">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 shrink-0">
+        <div
+          className="flex items-center gap-2 px-4 py-2.5 text-sm"
+          style={{
+            background: "var(--bg-sage-tint)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--r-md)",
+            color: "var(--ink-900)",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: "var(--sage-ink)" }}>
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          <span className="text-green-800">
-            <strong>{prefilledKeys.size} fields</strong> auto-filled from CSV upload. Unfilled fields are highlighted in amber.
+          <span>
+            <strong>{prefilledKeys.size} fields</strong> auto-filled from CSV upload. Unfilled fields are highlighted in clay.
           </span>
         </div>
       )}
 
       {/* Note about QI 12 and QI 14 */}
-      <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm text-blue-800">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 shrink-0 text-blue-500">
+      <div
+        className="flex items-start gap-2 px-4 py-2.5 text-sm"
+        style={{
+          background: "var(--bg-blue-tint)",
+          border: "1px solid var(--line)",
+          borderRadius: "var(--r-md)",
+          color: "var(--ink-700)",
+        }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--blue-ink)" }}>
           <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
         </svg>
         <span>
@@ -929,32 +1175,55 @@ export default function UploadCSVPage() {
         const allRequiredDone = sectionRequiredFilled === sectionRequired;
 
         return (
-          <div key={section.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div key={section.id} className="cd-surface overflow-hidden">
             {/* Section header */}
             <button
               type="button"
               onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition"
+              className="w-full flex items-center gap-3 px-5 py-4 text-left transition"
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-paper)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`}>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className={`w-4 h-4 transition-transform shrink-0 ${isOpen ? "rotate-90" : ""}`}
+                style={{ color: "var(--ink-500)" }}
+              >
                 <polyline points="9 18 15 12 9 6" />
               </svg>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-gray-900">QI {section.qiNum} — {section.title}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-900)" }}>
+                    QI {section.qiNum}, {section.title}
+                  </span>
                   {allRequiredDone && sectionRequired > 0 && (
-                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Complete</span>
+                    <span
+                      className="text-xs font-semibold px-1.5 py-0.5 rounded-full"
+                      style={{
+                        background: "var(--bg-sage-tint)",
+                        color: "var(--sage-ink)",
+                        border: "1px solid var(--sage)",
+                      }}
+                    >
+                      Complete
+                    </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5 truncate">{section.desc}</p>
+                <p className="mt-0.5 truncate" style={{ fontSize: 12, color: "var(--ink-500)" }}>
+                  {section.desc}
+                </p>
               </div>
-              <span className="text-xs text-gray-400 shrink-0">{sectionFilled}/{section.fields.length}</span>
+              <span className="text-xs shrink-0" style={{ color: "var(--ink-500)" }}>
+                {sectionFilled}/{section.fields.length}
+              </span>
             </button>
 
             {/* Section fields */}
             {isOpen && (
-              <div className="border-t border-gray-100 px-5 py-4">
+              <div className="px-5 py-4" style={{ borderTop: "1px solid var(--line-soft)" }}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                   {section.fields.map(field => {
                     const value = formData[field.key] ?? "";
@@ -965,16 +1234,23 @@ export default function UploadCSVPage() {
 
                     return (
                       <div key={field.key} className="flex flex-col gap-1">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700">
-                          {/* Status dot */}
+                        <label className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "var(--ink-700)" }}>
                           {isPrefilled && !isEmpty && (
-                            <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" title="Auto-filled from CSV" />
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: "var(--sage-ink)" }}
+                              title="Auto-filled from CSV"
+                            />
                           )}
                           {showAmber && (
-                            <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Needs manual entry" />
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: "var(--clay)" }}
+                              title="Needs manual entry"
+                            />
                           )}
                           <span>{field.label}</span>
-                          {isRequired && <span className="text-red-400">*</span>}
+                          {isRequired && <span style={{ color: "var(--clay-ink)" }}>*</span>}
                         </label>
                         <input
                           type={field.type === "date" ? "date" : "number"}
@@ -983,13 +1259,13 @@ export default function UploadCSVPage() {
                           value={value}
                           onChange={e => handleFieldChange(field.key, e.target.value)}
                           placeholder={field.type === "date" ? "YYYY-MM-DD" : "0"}
-                          className={`w-full px-3 py-2 text-sm border rounded-lg transition focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-                            showAmber
-                              ? "border-amber-300 bg-amber-50/50"
-                              : isPrefilled && !isEmpty
-                                ? "border-green-300 bg-green-50/30"
-                                : "border-gray-200 bg-white"
-                          }`}
+                          className="w-full px-3 py-2 text-sm transition focus:outline-none"
+                          style={{
+                            border: `1px solid ${showAmber ? "var(--clay)" : isPrefilled && !isEmpty ? "var(--sage)" : "var(--line)"}`,
+                            borderRadius: 10,
+                            background: showAmber ? "var(--bg-clay-tint)" : isPrefilled && !isEmpty ? "var(--bg-sage-tint)" : "var(--bg-paper)",
+                            color: "var(--ink-900)",
+                          }}
                         />
                       </div>
                     );
@@ -1008,66 +1284,102 @@ export default function UploadCSVPage() {
   const downloadTab = (
     <div className="flex-1 min-w-0 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Download & Export</h1>
-        <p className="text-sm text-gray-600">
+        <span className="cd-chip mb-2" style={{ display: "inline-flex" }}>
+          <span className="dot" /> Export
+        </span>
+        <h1
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: 30,
+            color: "var(--ink-900)",
+            letterSpacing: "-0.01em",
+            marginTop: 8,
+            marginBottom: 4,
+          }}
+        >
+          Download &amp; export
+        </h1>
+        <p style={{ color: "var(--ink-500)", fontSize: 14 }}>
           Download the official government data recording template or export your manually entered data as an Excel file.
         </p>
       </div>
 
       {/* Error banner */}
       {downloadError && (
-        <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{downloadError}</div>
+        <div
+          className="px-4 py-3 text-sm"
+          style={{
+            background: "var(--bg-clay-tint)",
+            border: "1px solid var(--line)",
+            borderLeft: "3px solid var(--clay-ink)",
+            borderRadius: "var(--r-md)",
+            color: "var(--clay-ink)",
+          }}
+        >
+          {downloadError}
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Government template */}
-        <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-blue-600">
+        <div className="cd-surface p-6">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+            style={{ background: "var(--bg-blue-tint)", border: "1px solid var(--line)" }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" style={{ color: "var(--blue-ink)" }}>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
               <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Government Template</h2>
-          <p className="text-sm text-gray-600 mb-1">
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-900)", marginBottom: 6 }}>
+            Government template
+          </h2>
+          <p style={{ fontSize: 13, color: "var(--ink-700)", marginBottom: 4 }}>
             Official QI Program data recording template (.xlsx) published by the Department of Health.
           </p>
-          <p className="text-xs text-gray-400 mb-4">
-            13 sheets — one per indicator. Section 1 (GPMS aggregates) auto-calculates from Section 2 (individual data).
+          <p style={{ fontSize: 12, color: "var(--ink-500)", marginBottom: 14 }}>
+            13 sheets, one per indicator. Section 1 (GPMS aggregates) auto-calculates from Section 2 (individual data).
           </p>
           <button
             type="button"
             onClick={handleDownloadGovTemplate}
             disabled={downloadingTemplate}
-            className="w-full bg-blue-600 text-white text-sm font-semibold py-2.5 px-5 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-60"
+            className="cd-btn w-full justify-center disabled:opacity-60"
+            style={{ background: "var(--blue-ink)", color: "var(--bg-paper)", borderColor: "var(--blue-ink)" }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            {downloadingTemplate ? "Downloading..." : "Download Government Template"}
+            {downloadingTemplate ? "Downloading…" : "Download government template"}
           </button>
         </div>
 
         {/* Export manual entry */}
-        <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-          <div className="w-12 h-12 rounded-xl bg-primary-light flex items-center justify-center mb-4">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-primary">
+        <div className="cd-surface p-6">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+            style={{ background: "var(--bg-sage-tint)", border: "1px solid var(--line)" }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" style={{ color: "var(--sage-ink)" }}>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
               <path d="M12 18v-6" /><path d="M9 15l3 3 3-3" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Export Manual Entry</h2>
-          <p className="text-sm text-gray-600 mb-1">
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-900)", marginBottom: 6 }}>
+            Export manual entry
+          </h2>
+          <p style={{ fontSize: 13, color: "var(--ink-700)", marginBottom: 4 }}>
             Export your manually entered GPMS data as an Excel file (.xlsx) formatted to match the government template structure.
           </p>
-          <p className="text-xs text-gray-400 mb-4">
-            {filledCount} of {ALL_FIELD_KEYS.length} fields filled  |  {requiredFilledCount} of {REQUIRED_KEYS.length} required fields complete
+          <p style={{ fontSize: 12, color: "var(--ink-500)", marginBottom: 14 }}>
+            {filledCount} of {ALL_FIELD_KEYS.length} fields filled · {requiredFilledCount} of {REQUIRED_KEYS.length} required fields complete
           </p>
           <button
             type="button"
             onClick={handleExportExcel}
             disabled={filledCount === 0}
-            className="w-full bg-primary text-white text-sm font-semibold py-2.5 px-5 rounded-lg hover:bg-primary-hover transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="cd-btn cd-btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
@@ -1075,15 +1387,21 @@ export default function UploadCSVPage() {
             Export as Excel (.xlsx)
           </button>
           {filledCount === 0 && (
-            <p className="text-xs text-gray-400 mt-2 text-center">Fill in at least one field in Manual Entry first</p>
+            <p className="mt-2 text-center" style={{ fontSize: 12, color: "var(--ink-500)" }}>
+              Fill in at least one field in Manual Entry first
+            </p>
           )}
         </div>
       </div>
 
       {/* Submission calendar */}
-      <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Submission Calendar</h2>
-        <p className="text-sm text-gray-600 mb-4">GPMS submission deadlines — 11:59pm AEST on the 21st of the month following quarter end.</p>
+      <div className="cd-surface p-6">
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-900)", marginBottom: 6 }}>
+          Submission calendar
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--ink-500)", marginBottom: 16 }}>
+          GPMS submission deadlines, 11:59pm AEST on the 21st of the month following quarter end.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { q: "Q1", period: "Jul – Sep", due: "21 October" },
@@ -1091,10 +1409,22 @@ export default function UploadCSVPage() {
             { q: "Q3", period: "Jan – Mar", due: "21 April" },
             { q: "Q4", period: "Apr – Jun", due: "21 July" },
           ].map(item => (
-            <div key={item.q} className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
-              <div className="text-sm font-semibold text-gray-900">{item.q}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{item.period}</div>
-              <div className="text-xs font-medium text-primary mt-1">Due: {item.due}</div>
+            <div
+              key={item.q}
+              className="p-3 text-center"
+              style={{
+                background: "var(--bg-paper)",
+                border: "1px solid var(--line-soft)",
+                borderRadius: "var(--r-md)",
+              }}
+            >
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--ink-900)", lineHeight: 1 }}>
+                {item.q}
+              </div>
+              <div className="mt-1" style={{ fontSize: 12, color: "var(--ink-500)" }}>{item.period}</div>
+              <div className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: "var(--sage-ink)" }}>
+                Due: {item.due}
+              </div>
             </div>
           ))}
         </div>
@@ -1105,9 +1435,9 @@ export default function UploadCSVPage() {
   // ─── Layout ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar />
-      <main className="flex-grow flex gap-6 px-4 sm:px-6 mt-24 pb-12 pt-8 max-w-7xl mx-auto w-full items-start">
+      <main className="flex-grow flex gap-6 px-4 sm:px-8 mt-24 pb-12 pt-8 max-w-7xl mx-auto w-full items-start">
         {sidebar}
         {activeTab === "upload" && uploadTab}
         {activeTab === "manual" && manualEntryTab}

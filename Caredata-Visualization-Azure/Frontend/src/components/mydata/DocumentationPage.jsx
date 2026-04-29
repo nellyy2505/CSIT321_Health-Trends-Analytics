@@ -430,33 +430,63 @@ export default function DocumentationPage() {
     }
   };
 
+  const presetBtn = (active) => ({
+    padding: "8px 16px",
+    fontSize: 13,
+    fontWeight: 500,
+    borderRadius: 999,
+    border: `1px solid ${active ? "var(--ink-900)" : "var(--line)"}`,
+    background: active ? "var(--ink-900)" : "var(--bg-white)",
+    color: active ? "var(--bg-white)" : "var(--ink-700)",
+    cursor: "pointer",
+    transition: "all .15s ease",
+  });
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar active="My Data" />
 
       <main className="flex flex-grow pt-32 pb-12 px-4 sm:px-6 max-w-7xl mx-auto gap-6">
         <MyDataSidebar activePage="Documentation" />
 
-        <div className="flex-1 bg-white rounded-2xl shadow p-8 border border-gray-200">
-          <h1 className="text-3xl font-semibold text-gray-900 mb-4">
+        <div className="flex-1 cd-surface p-8">
+          <span className="cd-chip mb-3" style={{ display: "inline-flex" }}>
+            <span className="dot" /> Reports
+          </span>
+          <h1
+            className="mb-3"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: 32,
+              color: "var(--ink-900)",
+              letterSpacing: "-0.01em",
+            }}
+          >
             Documentation Generator
           </h1>
-          <p className="text-gray-600 mb-8">
+          <p className="mb-8" style={{ color: "var(--ink-500)", fontSize: 14 }}>
             Choose which elements to include in your report. The report downloads automatically as a PDF file.
           </p>
 
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Presets</h3>
+            <h3
+              className="mb-2"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--ink-500)",
+                textTransform: "uppercase",
+                letterSpacing: ".08em",
+              }}
+            >
+              Presets
+            </h3>
             <div className="flex flex-wrap gap-2">
               {Object.entries(PRESETS).map(([key, p]) => (
                 <button
                   key={key}
                   onClick={() => applyPreset(key)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    preset === key
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  style={presetBtn(preset === key)}
                 >
                   {p.label}
                 </button>
@@ -464,32 +494,59 @@ export default function DocumentationPage() {
             </div>
           </div>
 
-          <div className="space-y-4 mb-8">
+          <div className="space-y-3 mb-8">
             {Object.entries(OPTION_LABELS).map(([key, label]) => (
               <div
                 key={key}
-                className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition"
+                className="flex items-center justify-between p-4"
+                style={{
+                  background: "var(--bg-paper)",
+                  border: "1px solid var(--line-soft)",
+                  borderRadius: 12,
+                }}
               >
-                <label className="text-gray-800 font-medium">{label}</label>
+                <label style={{ color: "var(--ink-900)", fontWeight: 500, fontSize: 14 }}>{label}</label>
                 <input
                   type="checkbox"
                   checked={selectedOptions[key]}
                   onChange={() => handleChange(key)}
-                  className="w-5 h-5 text-primary focus:ring-primary/60 rounded"
+                  className="w-5 h-5 rounded"
+                  style={{ accentColor: "var(--ink-900)" }}
                 />
               </div>
             ))}
           </div>
 
           {needsUpload && (
-            <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <label className="block text-sm font-medium text-amber-800 mb-2">Select CSV upload</label>
+            <div
+              className="mb-8 p-4"
+              style={{
+                background: "var(--bg-paper)",
+                border: "1px solid var(--line)",
+                borderRadius: 12,
+              }}
+            >
+              <label
+                className="block mb-2"
+                style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-700)" }}
+              >
+                Select CSV upload
+              </label>
               <select
                 value={selectedUploadId}
                 onChange={(e) => setSelectedUploadId(e.target.value)}
-                className="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-gray-800"
+                className="w-full max-w-md"
+                style={{
+                  background: "var(--bg-white)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                  color: "var(--ink-900)",
+                  fontSize: 14,
+                  padding: "8px 12px",
+                  outline: "none",
+                }}
               >
-                <option value="">— Choose upload —</option>
+                <option value="">Choose upload</option>
                 {uploadHistory.map((u) => (
                   <option key={u.uploadId} value={u.uploadId}>
                     {u.filename || u.uploadId} ({formatDate(u.uploadedAt)})
@@ -497,13 +554,24 @@ export default function DocumentationPage() {
                 ))}
               </select>
               {needsUpload && !hasUploads && (
-                <p className="mt-2 text-sm text-amber-700">No CSV uploads found. Upload a CSV first.</p>
+                <p className="mt-2" style={{ fontSize: 13, color: "var(--amber)" }}>
+                  No CSV uploads found. Upload a CSV first.
+                </p>
               )}
             </div>
           )}
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div
+              className="mb-6 p-4"
+              style={{
+                background: "var(--bg-clay-tint)",
+                border: "1px solid var(--line)",
+                borderRadius: 10,
+                color: "var(--clay-ink)",
+                fontSize: 13,
+              }}
+            >
               {error}
             </div>
           )}
@@ -512,19 +580,38 @@ export default function DocumentationPage() {
             <button
               onClick={handleGenerate}
               disabled={generating || (needsUpload && !selectedUploadId)}
-              className="bg-primary text-white px-6 py-3 rounded-md font-medium hover:bg-primary-hover transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="cd-btn cd-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {generating ? "Generating…" : "Generate Documentation"}
+              {generating ? "Generating…" : "Generate documentation"}
             </button>
           </div>
 
-          <div className="mt-10 bg-primary-light border border-primary/20 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-primary mb-2">Tip</h3>
-            <p className="text-gray-700 leading-relaxed mb-2">
+          <div
+            className="mt-10 p-6"
+            style={{
+              background: "var(--bg-blue-tint)",
+              border: "1px solid var(--line-soft)",
+              borderRadius: 12,
+            }}
+          >
+            <h3
+              className="mb-2"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 18,
+                color: "var(--blue-ink)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Tip
+            </h3>
+            <p className="mb-2" style={{ color: "var(--ink-700)", fontSize: 14, lineHeight: 1.6 }}>
               Use presets for quick report types. The report downloads as a PDF automatically.
             </p>
-            <p className="text-gray-600 text-sm">
-              <strong>Data needed:</strong> Personal Health Report uses My Data (from Health Scan or manual entry). Facility Analytics requires a CSV upload—upload a CSV first, then select it above.
+            <p style={{ color: "var(--ink-500)", fontSize: 13 }}>
+              <strong style={{ color: "var(--ink-700)" }}>Data needed:</strong> Personal Health Report uses
+              My Data (from Health Scan or manual entry). Facility Analytics requires a CSV upload , 
+              upload a CSV first, then select it above.
             </p>
           </div>
         </div>

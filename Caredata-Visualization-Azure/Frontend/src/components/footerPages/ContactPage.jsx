@@ -1,61 +1,87 @@
 import Navbar from "../common/Navbar";
 import Footer from "../common/Footer";
 
+const inputStyle = {
+  background: "var(--bg-paper)",
+  border: "1px solid var(--line)",
+  borderRadius: 10,
+  color: "var(--ink-900)",
+  fontSize: 14,
+  padding: "10px 14px",
+  outline: "none",
+  width: "100%",
+};
+
 export default function ContactPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar />
       <main className="flex-grow pb-12 px-4 sm:px-6 flex justify-center pt-32">
-        <div className="bg-white max-w-4xl w-full rounded-2xl shadow p-8 border border-gray-200 ">
-          <h1 className="text-3xl font-semibold text-gray-900 mb-4 text-center">
-            Contact Us
-          </h1>
-          <p className="text-gray-700 text-center mb-8">
-            Have questions, feedback, or technical issues? Get in touch with our team.
-          </p>
+        <div className="cd-surface max-w-4xl w-full p-10">
+          <div className="text-center mb-8">
+            <span className="cd-chip mb-3" style={{ display: "inline-flex" }}>
+              <span className="dot" /> Get in touch
+            </span>
+            <h1
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 36,
+                color: "var(--ink-900)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Contact us
+            </h1>
+            <p className="mt-2" style={{ color: "var(--ink-500)", fontSize: 14 }}>
+              Have questions, feedback, or technical issues? Get in touch with our team.
+            </p>
+          </div>
 
           <form className="space-y-5 max-w-lg mx-auto">
             <div>
-              <label className="block text-gray-700 mb-1 font-medium">Name</label>
-              <input
-                type="text"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Your name"
-              />
+              <label
+                className="block mb-1.5"
+                style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-700)" }}
+              >
+                Name
+              </label>
+              <input type="text" style={inputStyle} placeholder="Your name" />
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-1 font-medium">Email</label>
-              <input
-                type="email"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="your@email.com"
-              />
+              <label
+                className="block mb-1.5"
+                style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-700)" }}
+              >
+                Email
+              </label>
+              <input type="email" style={inputStyle} placeholder="your@email.com" />
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-1 font-medium">Message</label>
-              <textarea
-                rows="4"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Your message..."
-              ></textarea>
+              <label
+                className="block mb-1.5"
+                style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-700)" }}
+              >
+                Message
+              </label>
+              <textarea rows="5" style={{ ...inputStyle, resize: "vertical" }} placeholder="Your message..." />
             </div>
 
-            <button
-              type="submit"
-              className="w-full bg-primary text-white font-medium py-2 rounded-md hover:bg-primary-hover transition"
-            >
-              Send Message
+            <button type="submit" className="cd-btn cd-btn-primary w-full justify-center">
+              Send message
             </button>
           </form>
 
-          <div className="mt-10 text-center text-gray-600 text-sm">
+          <div className="mt-10 text-center" style={{ color: "var(--ink-500)", fontSize: 13 }}>
             <p>
-              Project developed by <span className="font-semibold text-sand">Team W08</span>,
-              University of Wollongong.
+              Project developed by{" "}
+              <span style={{ fontWeight: 600, color: "var(--sage-ink)" }}>Team W08</span>, University of Wollongong.
             </p>
-            <p>Email: <span className="text-sand">caredata@uow.edu.au</span></p>
+            <p className="mt-1">
+              Email:{" "}
+              <span style={{ color: "var(--sage-ink)", fontWeight: 500 }}>caredata@uow.edu.au</span>
+            </p>
           </div>
         </div>
       </main>

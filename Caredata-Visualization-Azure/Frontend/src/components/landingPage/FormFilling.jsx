@@ -36,7 +36,7 @@ export default function FormFilling() {
           >
             Our AI-powered voice analysis screens residents for early signs of
             cognitive decline, stroke risk, and depression from short recordings.
-            Carers collect a 30-second sample via a secure link — no specialist
+            Carers collect a 30-second sample via a secure link, no specialist
             equipment needed. The system tracks speech rate, pause patterns, pitch
             stability, and vocal energy over time, flagging deviations before
             clinical symptoms become apparent.
@@ -49,7 +49,7 @@ export default function FormFilling() {
           </button>
         </motion.div>
 
-        {/* 🖼️ Right side — refined grid */}
+        {/* 🖼️ Right side, refined grid */}
         <motion.div
           className="grid grid-cols-2 gap-3"
           variants={fadeUp}

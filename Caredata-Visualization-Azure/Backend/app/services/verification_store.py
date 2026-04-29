@@ -50,8 +50,12 @@ def create_token(email: str) -> str:
                 "used": False,
             })
         except Exception as e:
-            logger.exception("verification_store create_token: %s", e)
-            raise
+            logger.warning("Azure verification_store unavailable, falling back to in-memory: %s", e)
+            _in_memory_tokens[token] = {
+                "email": email.lower().strip(),
+                "expires_at": expires_at,
+                "used": False,
+            }
     else:
         _in_memory_tokens[token] = {
             "email": email.lower().strip(),

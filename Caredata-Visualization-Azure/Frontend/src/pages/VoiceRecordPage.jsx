@@ -1,5 +1,5 @@
 /**
- * VoiceRecordPage — Public resident-facing recording page.
+ * VoiceRecordPage, Public resident-facing recording page.
  *
  * Accessed via /voice/record/:token (no Navbar, no Footer).
  * Elderly-accessible: large fonts, high contrast, minimal UI.
@@ -23,6 +23,18 @@ import {
   updateConsent,
 } from "../services/voiceApi";
 import RecordingWidget from "../components/voice/RecordingWidget";
+import BrandMark from "../components/common/BrandMark";
+
+const inputStyle = {
+  background: "var(--bg-paper)",
+  border: "1px solid var(--line)",
+  borderRadius: 14,
+  color: "var(--ink-900)",
+  fontSize: 22,
+  padding: "16px 20px",
+  outline: "none",
+  width: "100%",
+};
 
 export default function VoiceRecordPage() {
   const { token } = useParams();
@@ -83,7 +95,6 @@ export default function VoiceRecordPage() {
         setStep("consent");
       }
     } catch {
-      // If consent check fails, show consent screen to be safe
       setStep("consent");
     }
   }, []);
@@ -104,7 +115,7 @@ export default function VoiceRecordPage() {
       try {
         const result = await registerResident(token, displayName.trim(), password);
         localStorage.setItem("resident_token", result.access_token);
-        setStep("consent"); // New registrations always need consent
+        setStep("consent");
       } catch (err) {
         const msg = err.response?.data?.detail || "Registration failed. Please try again.";
         setError(typeof msg === "string" ? msg : JSON.stringify(msg));
@@ -155,34 +166,80 @@ export default function VoiceRecordPage() {
     await uploadRecording(file);
   }, []);
 
+  const bigBtn = {
+    width: "100%",
+    padding: "20px",
+    fontSize: 22,
+    fontWeight: 600,
+    borderRadius: 14,
+    border: "1px solid var(--ink-900)",
+    background: "var(--ink-900)",
+    color: "var(--bg-white)",
+    cursor: submitting ? "not-allowed" : "pointer",
+    opacity: submitting ? 0.6 : 1,
+    transition: "all .15s ease",
+  };
+
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-12"
+      style={{ background: "var(--bg-cream)" }}
+    >
       {/* Logo / Header */}
-      <div className="mb-10 text-center">
-        <h1 className="text-4xl font-bold text-gray-900">CareData</h1>
-        <p className="text-xl text-gray-500 mt-1">Voice Health Check</p>
+      <div className="mb-10 text-center flex flex-col items-center gap-3">
+        <div className="flex items-center gap-3">
+          <BrandMark size={40} />
+          <span
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: 38,
+              color: "var(--ink-900)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            CareData
+          </span>
+        </div>
+        <p style={{ fontSize: 18, color: "var(--ink-500)" }}>Voice Health Check</p>
       </div>
 
       {/* Loading */}
       {step === "loading" && (
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xl text-gray-500 mt-4">Loading...</p>
+          <div
+            className="w-12 h-12 rounded-full animate-spin mx-auto"
+            style={{
+              border: "3px solid var(--line)",
+              borderTopColor: "var(--sage-ink)",
+            }}
+          />
+          <p className="mt-4" style={{ fontSize: 18, color: "var(--ink-500)" }}>Loading...</p>
         </div>
       )}
 
       {/* Invalid link */}
       {step === "invalid" && (
         <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6"
+            style={{ background: "var(--bg-clay-tint)", border: "1px solid var(--line)" }}
+          >
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: "var(--clay-ink)" }}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h2 className="text-3xl font-semibold text-gray-900 mb-4">
+          <h2
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: 30,
+              color: "var(--ink-900)",
+              marginBottom: 12,
+              letterSpacing: "-0.01em",
+            }}
+          >
             {linkData?.message || "This link is no longer valid."}
           </h2>
-          <p className="text-xl text-gray-600">
+          <p style={{ fontSize: 18, color: "var(--ink-700)" }}>
             Please ask your nurse for a new recording link.
           </p>
         </div>
@@ -190,51 +247,55 @@ export default function VoiceRecordPage() {
 
       {/* Registration form */}
       {step === "register" && (
-        <form onSubmit={handleRegister} className="w-full max-w-md space-y-6">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-semibold text-gray-900">Welcome</h2>
-            <p className="text-xl text-gray-600 mt-2">
+        <form onSubmit={handleRegister} className="w-full max-w-md cd-surface p-8 space-y-6">
+          <div className="text-center mb-2">
+            <h2
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 30,
+                color: "var(--ink-900)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Welcome
+            </h2>
+            <p className="mt-2" style={{ fontSize: 18, color: "var(--ink-500)" }}>
               Please create your name and password to get started.
             </p>
           </div>
 
           <div>
-            <label className="block text-xl font-medium text-gray-700 mb-2">
+            <label className="block mb-2" style={{ fontSize: 17, fontWeight: 500, color: "var(--ink-700)" }}>
               Your Name
             </label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full text-2xl px-5 py-4 border-2 border-gray-300 rounded-xl
-                         focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              style={inputStyle}
               placeholder="e.g. Margaret"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-xl font-medium text-gray-700 mb-2">
+            <label className="block mb-2" style={{ fontSize: 17, fontWeight: 500, color: "var(--ink-700)" }}>
               Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-2xl px-5 py-4 border-2 border-gray-300 rounded-xl
-                         focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              style={inputStyle}
               placeholder="At least 4 characters"
             />
           </div>
 
-          {error && <p className="text-lg text-red-600">{error}</p>}
+          {error && (
+            <p style={{ fontSize: 16, color: "var(--clay-ink)" }}>{error}</p>
+          )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-5 bg-primary text-white text-2xl font-semibold rounded-xl
-                       hover:bg-primary-hover transition-colors disabled:opacity-50"
-          >
+          <button type="submit" disabled={submitting} style={bigBtn}>
             {submitting ? "Creating account..." : "Continue"}
           </button>
         </form>
@@ -242,39 +303,42 @@ export default function VoiceRecordPage() {
 
       {/* Login form */}
       {step === "login" && (
-        <form onSubmit={handleLogin} className="w-full max-w-md space-y-6">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-semibold text-gray-900">
+        <form onSubmit={handleLogin} className="w-full max-w-md cd-surface p-8 space-y-6">
+          <div className="text-center mb-2">
+            <h2
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 30,
+                color: "var(--ink-900)",
+                letterSpacing: "-0.01em",
+              }}
+            >
               Welcome back{linkData?.display_name ? `, ${linkData.display_name}` : ""}
             </h2>
-            <p className="text-xl text-gray-600 mt-2">
+            <p className="mt-2" style={{ fontSize: 18, color: "var(--ink-500)" }}>
               Please enter your password to continue.
             </p>
           </div>
 
           <div>
-            <label className="block text-xl font-medium text-gray-700 mb-2">
+            <label className="block mb-2" style={{ fontSize: 17, fontWeight: 500, color: "var(--ink-700)" }}>
               Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-2xl px-5 py-4 border-2 border-gray-300 rounded-xl
-                         focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              style={inputStyle}
               placeholder="Enter your password"
               autoFocus
             />
           </div>
 
-          {error && <p className="text-lg text-red-600">{error}</p>}
+          {error && (
+            <p style={{ fontSize: 16, color: "var(--clay-ink)" }}>{error}</p>
+          )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-5 bg-primary text-white text-2xl font-semibold rounded-xl
-                       hover:bg-primary-hover transition-colors disabled:opacity-50"
-          >
+          <button type="submit" disabled={submitting} style={bigBtn}>
             {submitting ? "Logging in..." : "Continue"}
           </button>
         </form>
@@ -282,45 +346,61 @@ export default function VoiceRecordPage() {
 
       {/* Consent screen */}
       {step === "consent" && (
-        <div className="w-full max-w-lg space-y-6">
-          <div className="text-center mb-4">
-            <h2 className="text-3xl font-semibold text-gray-900">Consent for Voice Recording</h2>
+        <div className="w-full max-w-lg cd-surface p-8 space-y-6">
+          <div className="text-center mb-2">
+            <h2
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 28,
+                color: "var(--ink-900)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Consent for Voice Recording
+            </h2>
           </div>
 
-          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6 space-y-4 text-lg text-gray-700">
-            <p>
-              <strong>What is recorded:</strong> A short voice sample (30–60 seconds) of you speaking aloud.
-            </p>
-            <p>
-              <strong>How it is used:</strong> Your recording is analysed by computer to check for changes
-              in your speech patterns that may indicate health changes.
-            </p>
-            <p>
-              <strong>Who can see results:</strong> Your nurse and care team can view the analysis results.
-              They <strong>cannot</strong> listen to your recording.
-            </p>
-            <p>
-              <strong>Your rights:</strong> You own your recordings. You can listen to, download, or delete
-              them at any time. You can withdraw consent at any time.
-            </p>
-            <p>
-              <strong>Storage:</strong> Recordings are stored securely and encrypted. Analysis results are
-              kept even if you delete the recording.
-            </p>
-          </div>
-
-          {error && <p className="text-lg text-red-600">{error}</p>}
-
-          <button
-            onClick={handleConsent}
-            disabled={submitting}
-            className="w-full py-5 bg-primary text-white text-2xl font-semibold rounded-xl
-                       hover:bg-primary-hover transition-colors disabled:opacity-50"
+          <div
+            className="space-y-4"
+            style={{
+              background: "var(--bg-paper)",
+              border: "1px solid var(--line-soft)",
+              borderRadius: 14,
+              padding: 24,
+              fontSize: 17,
+              color: "var(--ink-700)",
+              lineHeight: 1.6,
+            }}
           >
-            {submitting ? "Saving..." : "I Agree — Continue"}
+            <p>
+              <strong style={{ color: "var(--ink-900)" }}>What is recorded:</strong> A short voice sample
+              (30&ndash;60 seconds) of you speaking aloud.
+            </p>
+            <p>
+              <strong style={{ color: "var(--ink-900)" }}>How it is used:</strong> Your recording is analysed by
+              computer to check for changes in your speech patterns that may indicate health changes.
+            </p>
+            <p>
+              <strong style={{ color: "var(--ink-900)" }}>Who can see results:</strong> Your nurse and care team
+              can view the analysis results. They <strong>cannot</strong> listen to your recording.
+            </p>
+            <p>
+              <strong style={{ color: "var(--ink-900)" }}>Your rights:</strong> You own your recordings. You
+              can listen to, download, or delete them at any time. You can withdraw consent at any time.
+            </p>
+            <p>
+              <strong style={{ color: "var(--ink-900)" }}>Storage:</strong> Recordings are stored securely and
+              encrypted. Analysis results are kept even if you delete the recording.
+            </p>
+          </div>
+
+          {error && <p style={{ fontSize: 16, color: "var(--clay-ink)" }}>{error}</p>}
+
+          <button onClick={handleConsent} disabled={submitting} style={bigBtn}>
+            {submitting ? "Saving..." : "I Agree, Continue"}
           </button>
 
-          <p className="text-center text-gray-400 text-base">
+          <p className="text-center" style={{ fontSize: 14, color: "var(--ink-500)" }}>
             You can withdraw consent at any time through your recording portal.
           </p>
         </div>
@@ -334,7 +414,7 @@ export default function VoiceRecordPage() {
       )}
 
       {/* Footer disclaimer */}
-      <p className="mt-12 text-sm text-gray-400 text-center max-w-md">
+      <p className="mt-12 text-center max-w-md" style={{ fontSize: 13, color: "var(--ink-500)" }}>
         This recording is used for health monitoring purposes only.
         You own your recordings and can request deletion at any time.
       </p>

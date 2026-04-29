@@ -137,8 +137,12 @@ def create_user(email: str, password_hash: str, first_name: str = "", last_name:
                 "email_verified": False,
             })
         except Exception as e:
-            logger.exception("user_store create_user: %s", e)
-            raise
+            logger.warning("Azure Table Storage unavailable, falling back to in-memory: %s", e)
+            _in_memory_users[email] = {
+                **user,
+                "password_hash": password_hash,
+                "email_verified": False,
+            }
     else:
         _in_memory_users[email] = {
             **user,

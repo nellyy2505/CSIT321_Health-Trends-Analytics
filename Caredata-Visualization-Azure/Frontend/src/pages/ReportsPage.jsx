@@ -23,13 +23,13 @@ const SIDEBAR_ITEMS = [
   { id:"ls",    label:"Lifestyle officer",          dot:"#D2C7E5" },
 ];
 
-// ─── Section templates (metadata only — rows computed dynamically) ───────────
+// ─── Section templates (metadata only, rows computed dynamically) ───────────
 
 const SECTION_TEMPLATES = [
   {
     id:"pi",
     title:"Pressure injuries",
-    subtitle:"QI 01 — PI_01, PI_S1–S4, PI_US, PI_DTI",
+    subtitle:"QI 01, PI_01, PI_S1–S4, PI_US, PI_DTI",
     description:"Prevalence of new or worsening pressure injuries sustained within the facility during the reporting period. Staged using NPUAP/EPUAP classification.",
     columns:["Assessment date","Residents assessed","Any PI (PI_01)","Prevalence %","Stage 1","Stage 2","Stage 3","Stage 4","Unstageable","DTI"],
     highlight:["Prevalence %"],
@@ -39,7 +39,7 @@ const SECTION_TEMPLATES = [
   {
     id:"falls",
     title:"Falls & major injury",
-    subtitle:"QI 04 — FALL_01, FALL_MAJ",
+    subtitle:"QI 04, FALL_01, FALL_MAJ",
     description:"Unplanned falls occurring in the facility, including those resulting in major injury. Major injury includes fractures, head injuries requiring imaging, or any injury requiring hospital admission.",
     columns:["Assessment date","Residents assessed","Any fall (FALL_01)","Fall rate %","Major injury (FALL_MAJ)","Major injury rate %"],
     highlight:["Fall rate %","Major injury rate %"],
@@ -49,7 +49,7 @@ const SECTION_TEMPLATES = [
   {
     id:"uwl",
     title:"Unplanned weight loss",
-    subtitle:"QI 03 — UWL_SIG, UWL_CON",
+    subtitle:"QI 03, UWL_SIG, UWL_CON",
     description:"Residents experiencing significant unplanned weight loss (≥5% over 3 months or ≥10% over 6 months) or consecutive weight loss across reporting periods.",
     columns:["Assessment date","Residents assessed","Significant loss (UWL_SIG)","Significant rate %","Consecutive loss (UWL_CON)","Consecutive rate %"],
     highlight:["Significant rate %"],
@@ -59,7 +59,7 @@ const SECTION_TEMPLATES = [
   {
     id:"meds",
     title:"Medications",
-    subtitle:"QI 05 — MED_POLY (polypharmacy ≥9), MED_AP (0=none, 1=with dx, 2=without dx)",
+    subtitle:"QI 05, MED_POLY (polypharmacy ≥9), MED_AP (0=none, 1=with dx, 2=without dx)",
     description:"Polypharmacy is defined as 9 or more regular medications. Antipsychotic use is split into three categories: no antipsychotic, prescribed with a psychosis diagnosis, and prescribed without a recorded diagnosis (MED_AP=2). The third category is the primary focus of ACQSC regulatory audits.",
     columns:["Assessment date","Residents assessed","Polypharmacy (MED_POLY)","Polypharmacy %","AP: none","AP: with dx","AP: without dx","AP without dx %"],
     highlight:["AP without dx %","Polypharmacy %"],
@@ -69,7 +69,7 @@ const SECTION_TEMPLATES = [
   {
     id:"adl",
     title:"Activities of daily living",
-    subtitle:"QI 06 — ADL_01 (decline flag), ADL Barthel 10-domain sub-scores (0–3 each)",
+    subtitle:"QI 06, ADL_01 (decline flag), ADL Barthel 10-domain sub-scores (0–3 each)",
     description:"Significant functional decline in activities of daily living (ADL), assessed via the Barthel Index. Sub-scores are summed across 10 domains (Bowels, Bladder, Grooming, Toilet, Feeding, Transfer, Mobility, Dressing, Stairs, Bathing), each scored 0–3.",
     columns:["Assessment date","Residents assessed","Decline flag (ADL_01)","Decline rate %","Avg Barthel total","Avg Bowels","Avg Bladder","Avg Mobility","Avg Transfer","Avg Bathing"],
     highlight:["Decline rate %","Avg Barthel total"],
@@ -79,7 +79,7 @@ const SECTION_TEMPLATES = [
   {
     id:"ic",
     title:"Incontinence care",
-    subtitle:"QI 07 — IC_IAD, IC_IAD_1A, IC_IAD_1B, IC_IAD_2A, IC_IAD_2B",
+    subtitle:"QI 07, IC_IAD, IC_IAD_1A, IC_IAD_1B, IC_IAD_2A, IC_IAD_2B",
     description:"Incontinence-associated dermatitis (IAD) prevalence, categorised by severity: Category 1A (persistent redness, intact skin), 1B (skin breakdown with maceration), 2A (skin loss with wound), 2B (skin loss with infection).",
     columns:["Assessment date","Residents assessed","Any IAD (IC_IAD)","IAD rate %","Cat 1A","Cat 1B","Cat 2A","Cat 2B"],
     highlight:["IAD rate %"],
@@ -89,7 +89,7 @@ const SECTION_TEMPLATES = [
   {
     id:"rp",
     title:"Restrictive practices",
-    subtitle:"QI 02 — RP_01, RP_MECH, RP_PHYS, RP_ENV, RP_SEC",
+    subtitle:"QI 02, RP_01, RP_MECH, RP_PHYS, RP_ENV, RP_SEC",
     description:"Use of restrictive practices including mechanical restraint (RP_MECH), physical restraint (RP_PHYS), environmental restraint (RP_ENV), and seclusion (RP_SEC). All restrictive practices must be approved, documented, and reviewed regularly.",
     columns:["Assessment date","Residents assessed","Any restraint (RP_01)","Restraint rate %","Mechanical","Physical","Environmental","Seclusion"],
     highlight:["Restraint rate %"],
@@ -99,7 +99,7 @@ const SECTION_TEMPLATES = [
   {
     id:"hosp",
     title:"Hospitalisation",
-    subtitle:"QI 08 — HOSP_ED (unplanned ED), HOSP_ALL (unplanned admission)",
+    subtitle:"QI 08, HOSP_ED (unplanned ED), HOSP_ALL (unplanned admission)",
     description:"Unplanned hospitalisation events, including emergency department presentations (HOSP_ED) and all unplanned hospital admissions (HOSP_ALL). Planned admissions and day procedures are excluded.",
     columns:["Assessment date","Residents assessed","ED presentations","ED rate %","All admissions","Admission rate %"],
     highlight:["ED rate %","Admission rate %"],
@@ -109,7 +109,7 @@ const SECTION_TEMPLATES = [
   {
     id:"ah",
     title:"Allied health",
-    subtitle:"QI 13 — AH_REC_RECOMMENDED, AH_REC_RECEIVED, AH_RCVD_PHYSIO/OT/SPEECH/POD/DIET/OTHER",
+    subtitle:"QI 13, AH_REC_RECOMMENDED, AH_REC_RECEIVED, AH_RCVD_PHYSIO/OT/SPEECH/POD/DIET/OTHER",
     description:"Allied health services recommended vs received. The 'gap' metric (AH gap %) represents residents who were assessed as needing allied health but did not receive it. Disciplines tracked: Physiotherapy, Occupational Therapy, Speech Pathology, Podiatry, Dietetics, and other.",
     columns:["Assessment date","Residents assessed","Recommended","Received","Gap (unmet)","Gap %","Avg minutes (AH_MIN)","Physio","OT","Speech"],
     highlight:["Gap %","Avg minutes (AH_MIN)"],
@@ -119,7 +119,7 @@ const SECTION_TEMPLATES = [
   {
     id:"cx",
     title:"Consumer experience",
-    subtitle:"QI 10 — CE_01 (composite score 0–24, higher = better)",
+    subtitle:"QI 10, CE_01 (composite score 0–24, higher = better)",
     description:"Consumer experience is measured via the ACQSC Consumer Experience Report survey. CE_01 is a composite score from 0 to 24 derived from resident and family feedback. Higher scores indicate better experience.",
     columns:["Assessment date","Responses","Avg CE score (/24)","Score as %","Scores ≥18","Scores 12–17","Scores <12"],
     highlight:["Avg CE score (/24)","Score as %"],
@@ -129,7 +129,7 @@ const SECTION_TEMPLATES = [
   {
     id:"qol",
     title:"Quality of life",
-    subtitle:"QI 11 — QOL_01 (composite score 0–24, higher = better)",
+    subtitle:"QI 11, QOL_01 (composite score 0–24, higher = better)",
     description:"Quality of life is measured using the ACQSC Quality of Life survey. QOL_01 is a composite score from 0 to 24. Higher scores indicate better quality of life. Scores below 12 represent residents with significantly impaired quality of life.",
     columns:["Assessment date","Responses","Avg QoL score (/24)","Score as %","Scores ≥18","Scores 12–17","Scores <12"],
     highlight:["Avg QoL score (/24)","Scores <12"],
@@ -139,7 +139,7 @@ const SECTION_TEMPLATES = [
   {
     id:"wf",
     title:"Workforce",
-    subtitle:"QI 09 — WF_HOURS_PPD (care hours per resident per day), WF_ADEQUATE (staffing threshold met)",
+    subtitle:"QI 09, WF_HOURS_PPD (care hours per resident per day), WF_ADEQUATE (staffing threshold met)",
     description:"Workforce adequacy is assessed at the facility level. WF_HOURS_PPD measures total direct care hours per resident per day, including registered nurses, enrolled nurses, and personal care workers. The minimum threshold is 4.0 hours per resident per day under Australian aged care funding.",
     columns:["Assessment date","Residents","Hours/resident/day","Threshold met","WF adequate flag count"],
     highlight:["Hours/resident/day","Threshold met"],
@@ -149,7 +149,7 @@ const SECTION_TEMPLATES = [
   {
     id:"en",
     title:"Enrolled nursing",
-    subtitle:"QI 12 — EN_DIRECT_PCT (% time in direct care activities)",
+    subtitle:"QI 12, EN_DIRECT_PCT (% time in direct care activities)",
     description:"The proportion of enrolled nursing time spent on direct resident care activities (as opposed to administrative, documentation, and other indirect tasks). A higher percentage indicates more time at bedside.",
     columns:["Assessment date","Residents","Direct care %","Admin & other %"],
     highlight:["Direct care %"],
@@ -159,7 +159,7 @@ const SECTION_TEMPLATES = [
   {
     id:"ls",
     title:"Lifestyle officer",
-    subtitle:"QI 14 — LS_SESSIONS_QTR (lifestyle sessions per resident per quarter)",
+    subtitle:"QI 14, LS_SESSIONS_QTR (lifestyle sessions per resident per quarter)",
     description:"Number of structured lifestyle, recreational, and social activity sessions attended by each resident during the reporting quarter. A minimum of 2 sessions per quarter is generally expected. Residents with zero sessions are a quality concern.",
     columns:["Assessment date","Residents assessed","Avg sessions","Total sessions","0 sessions","1–2 sessions","3–4 sessions","5+ sessions"],
     highlight:["Avg sessions","0 sessions"],
@@ -326,7 +326,7 @@ function generateMedsAlert(rows) {
   const apNoDx = parseInt(lastRow[6]) || 0;
   const label = lastRow[0];
   if (apNoDx > 0) {
-    return `AP without recorded psychosis diagnosis: ${apNoDx} residents as of ${label}. These residents require clinical review — this metric is the primary focus of ACQSC audits.`;
+    return `AP without recorded psychosis diagnosis: ${apNoDx} residents as of ${label}. These residents require clinical review, this metric is the primary focus of ACQSC audits.`;
   }
   return null;
 }
@@ -374,17 +374,17 @@ function getInitialId(searchParams) {
   return id && VALID_SECTION_IDS.has(id) ? id : "pi";
 }
 
-function badgeCls(badge) {
-  if (badge === "red") return "bg-red-100 text-red-800";
-  if (badge === "amber") return "bg-amber-100 text-amber-800";
-  return "bg-green-100 text-green-800";
+function badgeStyle(badge) {
+  if (badge === "red") return { background: "var(--bg-clay-tint)", color: "var(--clay-ink)", border: "1px solid var(--clay)" };
+  if (badge === "amber") return { background: "var(--bg-clay-tint)", color: "var(--amber)", border: "1px solid var(--clay)" };
+  return { background: "var(--bg-sage-tint)", color: "var(--sage-ink)", border: "1px solid var(--sage)" };
 }
 
-function valueCls(col, val, highlights) {
-  if (!highlights.includes(col)) return "text-gray-700";
-  if (typeof val === "string" && val.toLowerCase() === "no") return "text-red-600 font-semibold";
-  if (typeof val === "string" && val.toLowerCase() === "yes") return "text-green-700 font-semibold";
-  return "text-gray-900 font-medium";
+function valueStyle(col, val, highlights) {
+  if (!highlights.includes(col)) return { color: "var(--ink-700)" };
+  if (typeof val === "string" && val.toLowerCase() === "no") return { color: "var(--clay-ink)", fontWeight: 600 };
+  if (typeof val === "string" && val.toLowerCase() === "yes") return { color: "var(--sage-ink)", fontWeight: 600 };
+  return { color: "var(--ink-900)", fontWeight: 500 };
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -446,67 +446,140 @@ export default function ReportsPage() {
   const rawCols = section.rawCols || [];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar />
 
-      <main className="flex flex-grow pt-32 pb-12 px-4 sm:px-6 lg:px-8 max-w-[1280px] mx-auto gap-6 w-full">
+      <main className="flex flex-grow pt-28 pb-12 px-4 sm:px-8 max-w-[1280px] mx-auto gap-6 w-full">
         {/* Sidebar */}
-        <aside className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 overflow-y-auto w-56 md:w-60 lg:w-64 max-h-[85vh] shrink-0">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">All 14 indicators</h2>
+        <aside
+          className="p-4 overflow-y-auto w-56 md:w-60 lg:w-64 max-h-[85vh] shrink-0 self-start sticky top-24"
+          style={{
+            background: "var(--bg-white)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--r-lg)",
+          }}
+        >
+          <h2
+            className="uppercase mb-3 px-1"
+            style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-500)", letterSpacing: "0.08em" }}
+          >
+            All 14 indicators
+          </h2>
           <ul className="space-y-0.5">
-            {SIDEBAR_ITEMS.map(item => (
-              <li
-                key={item.id}
-                onClick={() => { setActiveId(item.id); setShowRaw(false); }}
-                className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition ${
-                  activeId === item.id ? "bg-primary text-white shadow-sm" : "text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: activeId === item.id ? "currentColor" : item.dot }} />
-                <span className="flex-1 min-w-0 truncate">{item.label}</span>
-              </li>
-            ))}
+            {SIDEBAR_ITEMS.map(item => {
+              const active = activeId === item.id;
+              return (
+                <li
+                  key={item.id}
+                  onClick={() => { setActiveId(item.id); setShowRaw(false); }}
+                  className="flex items-center gap-3 cursor-pointer transition"
+                  style={{
+                    padding: "9px 12px",
+                    fontSize: 14,
+                    borderRadius: 10,
+                    color: active ? "var(--ink-900)" : "var(--ink-700)",
+                    background: active ? "var(--bg-sage-tint)" : "transparent",
+                    fontWeight: active ? 500 : 400,
+                    boxShadow: active ? "inset 0 0 0 1px var(--sage)" : "none",
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--bg-cream)"; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ background: active ? "var(--sage-ink)" : item.dot }}
+                  />
+                  <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                </li>
+              );
+            })}
           </ul>
         </aside>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow p-8 border border-gray-200">
+        <div className="flex-1 min-w-0 cd-surface p-8">
 
           {/* Header */}
           <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900"><strong>{section.title}</strong></h1>
-              <p className="text-sm text-gray-500 mt-1">{section.subtitle}</p>
+              <span className="cd-chip mb-2" style={{ display: "inline-flex" }}>
+                <span className="dot" /> Quality indicator
+              </span>
+              <h1
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 30,
+                  color: "var(--ink-900)",
+                  letterSpacing: "-0.01em",
+                  marginTop: 8,
+                }}
+              >
+                {section.title}
+              </h1>
+              <p className="mt-1" style={{ fontSize: 13, color: "var(--ink-500)" }}>
+                {section.subtitle}
+              </p>
             </div>
             {hasData && section.badge && (
-              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeCls(section.badge)}`}>{section.badgeLabel}</span>
+              <span className="text-xs font-semibold px-3 py-1 rounded-full" style={badgeStyle(section.badge)}>
+                {section.badgeLabel}
+              </span>
             )}
           </div>
 
           {/* Description */}
-          <p className="text-sm text-gray-600 mb-6 leading-relaxed border-l-4 border-primary/30 pl-4 bg-primary-light/40 py-3 pr-3 rounded-r-lg">{section.description}</p>
+          <p
+            className="mb-6 leading-relaxed pl-4 pr-3 py-3"
+            style={{
+              fontSize: 13,
+              color: "var(--ink-700)",
+              borderLeft: "3px solid var(--sage)",
+              background: "var(--bg-sage-tint)",
+              borderTopRightRadius: 10,
+              borderBottomRightRadius: 10,
+            }}
+          >
+            {section.description}
+          </p>
 
           {/* Alert callout (meds only) */}
           {section.alert && (
-            <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 mb-6">
-              <span className="text-red-500 shrink-0 mt-0.5">!</span>
+            <div
+              className="flex items-start gap-2.5 p-3.5 mb-6"
+              style={{
+                background: "var(--bg-clay-tint)",
+                border: "1px solid var(--line)",
+                borderLeft: "3px solid var(--clay-ink)",
+                borderRadius: "var(--r-md)",
+                fontSize: 13,
+                color: "var(--clay-ink)",
+              }}
+            >
+              <span className="shrink-0 mt-0.5" style={{ fontWeight: 700 }}>!</span>
               <span>{section.alert}</span>
             </div>
           )}
 
           {/* Loading state */}
           {loading && (
-            <div className="text-center py-12 text-gray-400">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
-              <p className="text-sm">Loading QI data...</p>
+            <div className="text-center py-12" style={{ color: "var(--ink-500)" }}>
+              <div
+                className="animate-spin rounded-full h-8 w-8 mx-auto mb-3"
+                style={{ border: "2px solid var(--line)", borderTopColor: "var(--sage-ink)" }}
+              />
+              <p style={{ fontSize: 13 }}>Loading QI data…</p>
             </div>
           )}
 
           {/* Empty state */}
           {!loading && !hasData && (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-2">No QI data available for this indicator.</p>
-              <p className="text-sm text-gray-400">Upload a CSV with QI assessment data to populate reports.</p>
+              <p className="mb-2" style={{ color: "var(--ink-700)" }}>
+                No QI data available for this indicator.
+              </p>
+              <p style={{ fontSize: 13, color: "var(--ink-500)" }}>
+                Upload a CSV with QI assessment data to populate reports.
+              </p>
             </div>
           )}
 
@@ -518,14 +591,24 @@ export default function ReportsPage() {
                 <button
                   type="button"
                   onClick={() => setShowRaw(false)}
-                  className={`text-sm font-medium px-4 py-1.5 rounded-full border transition ${!showRaw ? "bg-gray-900 text-white border-gray-900" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"}`}
+                  className="text-sm font-medium px-4 py-1.5 rounded-full transition"
+                  style={
+                    !showRaw
+                      ? { background: "var(--ink-900)", color: "var(--bg-paper)", border: "1px solid var(--ink-900)" }
+                      : { background: "var(--bg-white)", color: "var(--ink-700)", border: "1px solid var(--line)" }
+                  }
                 >
                   Aggregated data
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowRaw(true)}
-                  className={`text-sm font-medium px-4 py-1.5 rounded-full border transition ${showRaw ? "bg-gray-900 text-white border-gray-900" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"}`}
+                  className="text-sm font-medium px-4 py-1.5 rounded-full transition"
+                  style={
+                    showRaw
+                      ? { background: "var(--ink-900)", color: "var(--bg-paper)", border: "1px solid var(--ink-900)" }
+                      : { background: "var(--bg-white)", color: "var(--ink-700)", border: "1px solid var(--line)" }
+                  }
                 >
                   Resident-level data
                 </button>
@@ -534,20 +617,32 @@ export default function ReportsPage() {
               {!showRaw && (
                 <>
                   {/* Aggregated table */}
-                  <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm mb-6">
-                    <table className="w-full text-sm text-left">
+                  <div
+                    className="overflow-x-auto mb-6"
+                    style={{ border: "1px solid var(--line)", borderRadius: "var(--r-lg)" }}
+                  >
+                    <table className="cd-table">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr>
                           {section.columns.map(col => (
-                            <th key={col} className={`px-4 py-3 font-semibold whitespace-nowrap ${(section.highlight || []).includes(col) ? "text-gray-900" : "text-gray-500"}`}>{col}</th>
+                            <th key={col} className="whitespace-nowrap">
+                              {col}
+                            </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {section.rows.map((row, ri) => (
-                          <tr key={ri} className={`border-b border-gray-100 ${ri % 2 === 0 ? "bg-white" : "bg-gray-50/60"} hover:bg-primary-light/30 transition`}>
+                          <tr key={ri}>
                             {row.map((cell, ci) => (
-                              <td key={ci} className={`px-4 py-3 ${ci === 0 ? "font-semibold text-gray-800" : valueCls(section.columns[ci], cell, section.highlight || [])}`}>
+                              <td
+                                key={ci}
+                                style={
+                                  ci === 0
+                                    ? { fontWeight: 600, color: "var(--ink-900)" }
+                                    : valueStyle(section.columns[ci], cell, section.highlight || [])
+                                }
+                              >
                                 {cell}
                               </td>
                             ))}
@@ -559,8 +654,17 @@ export default function ReportsPage() {
 
                   {/* Summary notes */}
                   {section.notes && (
-                    <div className="flex items-start gap-2.5 p-3.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-gray-400">
+                    <div
+                      className="flex items-start gap-2.5 p-3.5"
+                      style={{
+                        background: "var(--bg-paper)",
+                        border: "1px solid var(--line-soft)",
+                        borderRadius: "var(--r-md)",
+                        fontSize: 13,
+                        color: "var(--ink-700)",
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5" style={{ color: "var(--ink-500)" }}>
                         <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                       </svg>
                       <span>{section.notes}</span>
@@ -576,10 +680,22 @@ export default function ReportsPage() {
                       const prev = ri > 0 ? section.rows[ri - 1][highlightIdx > 0 ? highlightIdx : 1] : null;
                       const isFirst = ri === 0;
                       return (
-                        <div key={ri} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <div className="text-xs font-medium text-gray-500 mb-1">{dateLabel}</div>
-                          <div className="text-xl font-semibold text-gray-900">{val}</div>
-                          <div className="text-xs text-gray-400 mt-1">
+                        <div
+                          key={ri}
+                          className="p-4"
+                          style={{
+                            background: "var(--bg-paper)",
+                            border: "1px solid var(--line-soft)",
+                            borderRadius: "var(--r-md)",
+                          }}
+                        >
+                          <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-500)", marginBottom: 4 }}>
+                            {dateLabel}
+                          </div>
+                          <div style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "var(--ink-900)", lineHeight: 1 }}>
+                            {val}
+                          </div>
+                          <div className="mt-1" style={{ fontSize: 11, color: "var(--ink-500)" }}>
                             {isFirst ? "Baseline" : prev ? `vs ${prev}` : "—"}
                           </div>
                         </div>
@@ -593,27 +709,28 @@ export default function ReportsPage() {
                 <div>
                   {latestResidents.length > 0 ? (
                     <>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Showing {Math.min(latestResidents.length, 20)} of {latestResidents.length} resident records from <strong>{latestLabel} ({latestDate})</strong>.
+                      <p className="mb-4" style={{ fontSize: 13, color: "var(--ink-500)" }}>
+                        Showing {Math.min(latestResidents.length, 20)} of {latestResidents.length} resident records from{" "}
+                        <strong style={{ color: "var(--ink-900)" }}>{latestLabel} ({latestDate})</strong>.
                       </p>
-                      <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
-                        <table className="w-full text-xs text-left">
+                      <div className="overflow-x-auto" style={{ border: "1px solid var(--line)", borderRadius: "var(--r-lg)" }}>
+                        <table className="cd-table" style={{ fontSize: 12 }}>
                           <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200">
-                              <th className="px-3 py-2.5 font-semibold text-gray-700">Resident_ID</th>
-                              <th className="px-3 py-2.5 font-semibold text-gray-700">Assessment_Date</th>
+                            <tr>
+                              <th>Resident_ID</th>
+                              <th>Assessment_Date</th>
                               {rawCols.map(col => (
-                                <th key={col} className="px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">{col}</th>
+                                <th key={col} className="whitespace-nowrap">{col}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody>
-                            {latestResidents.slice(0, 20).map((r, i) => (
-                              <tr key={r.resident_id} className={`border-b border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/60"}`}>
-                                <td className="px-3 py-2 font-medium text-gray-800">{r.resident_id}</td>
-                                <td className="px-3 py-2 text-gray-600">{r.assessment_date}</td>
+                            {latestResidents.slice(0, 20).map((r) => (
+                              <tr key={r.resident_id}>
+                                <td style={{ fontWeight: 500 }}>{r.resident_id}</td>
+                                <td style={{ color: "var(--ink-700)" }}>{r.assessment_date}</td>
                                 {rawCols.map(col => (
-                                  <td key={col} className="px-3 py-2 text-gray-600">{r[col] ?? "—"}</td>
+                                  <td key={col} style={{ color: "var(--ink-700)" }}>{r[col] ?? "—"}</td>
                                 ))}
                               </tr>
                             ))}
@@ -621,13 +738,17 @@ export default function ReportsPage() {
                         </table>
                       </div>
                       {latestResidents.length > 20 && (
-                        <p className="text-xs text-gray-400 mt-3">Showing first 20 of {latestResidents.length} residents.</p>
+                        <p className="mt-3" style={{ fontSize: 12, color: "var(--ink-500)" }}>
+                          Showing first 20 of {latestResidents.length} residents.
+                        </p>
                       )}
                     </>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-sm text-gray-500">No resident-level data available.</p>
-                      <p className="text-xs text-gray-400 mt-1">Upload a CSV to populate resident-level records.</p>
+                      <p style={{ fontSize: 13, color: "var(--ink-700)" }}>No resident-level data available.</p>
+                      <p className="mt-1" style={{ fontSize: 12, color: "var(--ink-500)" }}>
+                        Upload a CSV to populate resident-level records.
+                      </p>
                     </div>
                   )}
                 </div>

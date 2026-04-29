@@ -1,5 +1,5 @@
 /**
- * VoiceDashboardPage — Phase 3 Nurse-facing voice biomarker dashboard.
+ * VoiceDashboardPage, Phase 3 Nurse-facing voice biomarker dashboard.
  *
  * Redesigned for 100+ residents:
  * - Searchable patient ID input (not select box)
@@ -32,23 +32,26 @@ import {
   PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import {
+  STATUS, CHART_PALETTE, CHART_GRID, axisTickStyle, tooltipStyle, legendStyle,
+} from "../theme/chartTokens";
 
-// ── Style-guide palette ─────────────────────────────────────────────────────
+// Clinical-calm chart palette, sourced from shared chart tokens.
 const PALETTE = {
-  secondary: "#F2D894",  // soft gold
-  info: "#D2C7E5",       // lavender
-  success: "#D3EADA",    // mint
-  warning: "#F2D894",    // soft gold
-  error: "#F9C0AF",      // peach
-  dark: "#4a3f35",
-  gray1: "#6b5e52",
-  gray2: "#8a7e72",
-  gray3: "#b0a89e",
-  gray4: "#F9ECE3",
-  gray5: "#FDF8F4",
+  secondary: CHART_PALETTE[0], // sage-ink
+  info:      CHART_PALETTE[1], // dusty-blue-ink
+  success:   STATUS.good,
+  warning:   STATUS.warn,
+  error:     STATUS.bad,
+  dark:      "#1F2622",
+  gray1:     "#3D4743",
+  gray2:     "#6B7570",
+  gray3:     "#B4BAB4",
+  gray4:     "#ECE6D9",
+  gray5:     "#FBF8F2",
 };
 
-const ALERT_PIE_COLORS = [PALETTE.success, PALETTE.warning, PALETTE.error];
+const ALERT_PIE_COLORS = [STATUS.good, STATUS.warn, STATUS.bad];
 
 export default function VoiceDashboardPage() {
   const [summary, setSummary] = useState(null);
@@ -62,7 +65,7 @@ export default function VoiceDashboardPage() {
   const [historyData, setHistoryData] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Link generation — searchable input
+  // Link generation, searchable input
   const [existingLinks, setExistingLinks] = useState([]);
   const [linkInput, setLinkInput] = useState("");
   const [linkDropdownOpen, setLinkDropdownOpen] = useState(false);
@@ -70,7 +73,7 @@ export default function VoiceDashboardPage() {
   const [linkError, setLinkError] = useState("");
   const linkInputRef = useRef(null);
 
-  // Batch link generation — tag-based
+  // Batch link generation, tag-based
   const [batchMode, setBatchMode] = useState(false);
   const [batchInput, setBatchInput] = useState("");
   const [batchTags, setBatchTags] = useState([]);
@@ -245,7 +248,7 @@ export default function VoiceDashboardPage() {
     fatigue: a.acoustic_features?.vocal_fatigue_index || 0,
   })) || [];
 
-  // Bar chart data — latest vs baseline
+  // Bar chart data, latest vs baseline
   const barCompareData = useMemo(() => {
     if (!historyData?.analyses || historyData.analyses.length < 2) return [];
     const latest = historyData.analyses[0]?.acoustic_features || {};
@@ -259,7 +262,7 @@ export default function VoiceDashboardPage() {
     ];
   }, [historyData]);
 
-  // Radar data — latest acoustic profile (normalized 0-100)
+  // Radar data, latest acoustic profile (normalized 0-100)
   const radarData = useMemo(() => {
     if (!historyData?.analyses?.[0]) return [];
     const f = historyData.analyses[0].acoustic_features || {};
@@ -341,38 +344,57 @@ export default function VoiceDashboardPage() {
   };
 
   const SortIcon = ({ col }) => {
-    if (sortCol !== col) return <span className="text-gray-300 ml-1">↕</span>;
-    return <span className="text-gray-600 ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+    if (sortCol !== col) return <span className="ml-1" style={{ color: "var(--ink-300)" }}>↕</span>;
+    return <span className="ml-1" style={{ color: "var(--ink-700)" }}>{sortDir === "asc" ? "↑" : "↓"}</span>;
   };
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-cream)" }}>
       <Navbar />
-      <main className="flex-grow pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-[1400px] mx-auto w-full">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Voice Biomarker Screening</h1>
+      <main className="flex-grow pt-28 pb-12 px-4 sm:px-8 max-w-[1400px] mx-auto w-full">
+        <div className="mb-6">
+          <span className="cd-chip" style={{ display: "inline-flex" }}>
+            <span className="dot" /> Phase 3 · Voice screening
+          </span>
+          <h1
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: 36,
+              color: "var(--ink-900)",
+              letterSpacing: "-0.01em",
+              marginTop: 8,
+              lineHeight: 1.1,
+            }}
+          >
+            Voice Biomarker Screening
+          </h1>
+          <p style={{ color: "var(--ink-500)", fontSize: 14, marginTop: 6 }}>
+            Resident acoustic trends, alerts and recording-link orchestration.
+          </p>
+        </div>
 
         {/* ── Summary strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
           <SummaryCard label="Residents Screened" value={residents.length} />
           <SummaryCard label="Active Alerts" value={summary?.active_alerts ?? 0}
-            color={summary?.red_alerts > 0 ? "text-red-600" : "text-amber-600"} />
-          <SummaryCard label="Red Alerts" value={summary?.red_alerts ?? 0} color="text-red-600" />
-          <SummaryCard label="QI Flags" value={qiFlags.length} color="text-blue-600" />
+            tone={summary?.red_alerts > 0 ? "clay" : "amber"} />
+          <SummaryCard label="Red Alerts" value={summary?.red_alerts ?? 0} tone="clay" />
+          <SummaryCard label="QI Flags" value={qiFlags.length} tone="blue" />
           {/* Mini alert distribution donut */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center justify-center">
+          <div className="cd-surface p-4 flex items-center justify-center">
             {alertDistribution.length > 0 ? (
               <ResponsiveContainer width={90} height={90}>
                 <PieChart>
                   <Pie data={alertDistribution} dataKey="value" cx="50%" cy="50%" innerRadius={22} outerRadius={38} strokeWidth={1}>
                     {alertDistribution.map((d, i) => <Cell key={i} fill={d.color} />)}
                   </Pie>
-                  <Tooltip formatter={(v, n) => [v, n]} />
+                  <Tooltip formatter={(v, n) => [v, n]} {...tooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-xs text-gray-400">No data</p>
+              <p className="text-xs" style={{ color: "var(--ink-500)" }}>No data</p>
             )}
           </div>
         </div>
@@ -381,23 +403,27 @@ export default function VoiceDashboardPage() {
           {/* ── Left column: Alerts + Link gen + QI ─────────────────── */}
           <div className="lg:col-span-1 space-y-6">
             {/* Alerts */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Alerts</h2>
+            <div className="cd-surface p-5">
+              <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--ink-900)", marginBottom: 14 }}>
+                Alerts
+              </h2>
               <VoiceAlertsFeed alerts={alerts} onAcknowledge={handleAcknowledge} loading={alertsLoading} />
             </div>
 
             {/* ── Generate Recording Link ───────────────────────────── */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="cd-surface p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Generate Recording Link</h2>
+                <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--ink-900)" }}>
+                  Generate Recording Link
+                </h2>
                 <button onClick={() => { setBatchMode(!batchMode); setGeneratedLink(null); setBatchResults(null); setLinkError(""); }}
-                  className="text-xs font-medium hover:underline" style={{ color: PALETTE.secondary }}>
+                  className="text-xs font-medium hover:underline" style={{ color: "var(--sage-ink)" }}>
                   {batchMode ? "Single" : "Batch"}
                 </button>
               </div>
 
               {!batchMode ? (
-                /* ── Single mode — searchable input ──────────────────── */
+                /* ── Single mode, searchable input ──────────────────── */
                 <div className="space-y-3">
                   <div className="relative">
                     <input
@@ -408,20 +434,27 @@ export default function VoiceDashboardPage() {
                       onFocus={() => setLinkDropdownOpen(true)}
                       onBlur={() => setTimeout(() => setLinkDropdownOpen(false), 200)}
                       placeholder="Type patient ID (e.g. R001)..."
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
-                                 focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none bg-white"
+                      className="w-full px-4 py-2.5 text-sm outline-none"
+                      style={{ border: "1px solid var(--line)", borderRadius: 10, background: "var(--bg-paper)", color: "var(--ink-900)" }}
                     />
-                    {/* Dropdown suggestions */}
                     {linkDropdownOpen && linkSuggestions.length > 0 && (
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      <div
+                        className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto"
+                        style={{ background: "var(--bg-white)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "var(--shadow-sm)" }}
+                      >
                         {linkSuggestions.map((id) => (
-                          <button key={id}
+                          <button
+                            key={id}
                             onMouseDown={(e) => { e.preventDefault(); setLinkInput(id); setLinkDropdownOpen(false); }}
-                            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between">
+                            className="w-full text-left px-4 py-2 text-sm flex items-center justify-between"
+                            style={{ color: "var(--ink-900)" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-paper)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
                             <span>{id}</span>
                             {hasActiveLink(id) && (
                               <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                                style={{ background: "#e8f5e9", color: PALETTE.success }}>Generated</span>
+                                style={{ background: "var(--bg-sage-tint)", color: "var(--sage-ink)" }}>Generated</span>
                             )}
                           </button>
                         ))}
@@ -429,30 +462,28 @@ export default function VoiceDashboardPage() {
                     )}
                   </div>
 
-                  <button onClick={() => handleGenerateLink()}
-                    className="w-full py-2.5 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm"
-                    style={{ background: PALETTE.secondary }}>
+                  <button onClick={() => handleGenerateLink()} className="cd-btn cd-btn-primary w-full justify-center text-sm">
                     {hasActiveLink(linkInput.trim()) ? "Show Existing Link" : "Generate Link"}
                   </button>
 
-                  {linkError && <p className="text-sm text-red-600">{linkError}</p>}
+                  {linkError && <p className="text-sm" style={{ color: "var(--clay-ink)" }}>{linkError}</p>}
                   {generatedLink && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <p className="text-sm font-medium" style={{ color: PALETTE.success }}>
+                    <div className="p-3" style={{ background: "var(--bg-sage-tint)", border: "1px solid var(--line)", borderRadius: 10 }}>
+                      <p className="text-sm font-medium" style={{ color: "var(--sage-ink)" }}>
                         {generatedLink.reused ? "Existing link:" : "Link generated:"}
                       </p>
-                      <p className="text-xs text-green-700 break-all mt-1">{generatedLink.url}</p>
+                      <p className="text-xs break-all mt-1" style={{ color: "var(--ink-700)" }}>{generatedLink.url}</p>
                       <button onClick={() => navigator.clipboard.writeText(generatedLink.url)}
-                        className="mt-2 text-xs font-medium hover:underline" style={{ color: PALETTE.secondary }}>
+                        className="mt-2 text-xs font-medium hover:underline" style={{ color: "var(--sage-ink)" }}>
                         Copy to clipboard
                       </button>
                     </div>
                   )}
                 </div>
               ) : (
-                /* ── Batch mode — tag-based input ────────────────────── */
+                /* ── Batch mode, tag-based input ────────────────────── */
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-500">Enter patient IDs to generate links in batch:</p>
+                  <p className="text-sm" style={{ color: "var(--ink-500)" }}>Enter patient IDs to generate links in batch:</p>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -460,44 +491,39 @@ export default function VoiceDashboardPage() {
                       onChange={(e) => setBatchInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBatchTag(); } }}
                       placeholder="Type ID + Enter..."
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm
-                                 focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                      className="flex-1 px-4 py-2 text-sm outline-none"
+                      style={{ border: "1px solid var(--line)", borderRadius: 10, background: "var(--bg-paper)", color: "var(--ink-900)" }}
                     />
-                    <button onClick={addBatchTag}
-                      className="px-4 py-2 text-white text-sm font-medium rounded-lg"
-                      style={{ background: PALETTE.secondary }}>
-                      Add
-                    </button>
+                    <button onClick={addBatchTag} className="cd-btn cd-btn-primary text-sm">Add</button>
                   </div>
 
-                  {/* Tags */}
                   {batchTags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {batchTags.map((id) => (
-                        <span key={id} className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm">
+                        <span key={id} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm"
+                          style={{ background: "var(--bg-paper)", border: "1px solid var(--line)", color: "var(--ink-700)" }}>
                           {id}
-                          {hasActiveLink(id) && <span className="text-xs" style={{ color: PALETTE.success }}>✓</span>}
-                          <button onClick={() => removeBatchTag(id)} className="text-gray-400 hover:text-red-500 ml-1">&times;</button>
+                          {hasActiveLink(id) && <span className="text-xs" style={{ color: "var(--sage-ink)" }}>✓</span>}
+                          <button onClick={() => removeBatchTag(id)} className="ml-1" style={{ color: "var(--ink-500)" }}>&times;</button>
                         </span>
                       ))}
                     </div>
                   )}
 
                   <button onClick={handleBatchGenerate} disabled={batchTags.length === 0}
-                    className="w-full py-2.5 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm disabled:opacity-50"
-                    style={{ background: PALETTE.secondary }}>
+                    className="cd-btn cd-btn-primary w-full justify-center text-sm disabled:opacity-50">
                     Generate {batchTags.length} Link{batchTags.length !== 1 ? "s" : ""}
                   </button>
 
-                  {linkError && <p className="text-sm text-red-600">{linkError}</p>}
+                  {linkError && <p className="text-sm" style={{ color: "var(--clay-ink)" }}>{linkError}</p>}
                   {batchResults && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
-                      <p className="text-sm font-medium" style={{ color: PALETTE.success }}>{batchResults.length} links generated:</p>
+                    <div className="p-3 space-y-2" style={{ background: "var(--bg-sage-tint)", border: "1px solid var(--line)", borderRadius: 10 }}>
+                      <p className="text-sm font-medium" style={{ color: "var(--sage-ink)" }}>{batchResults.length} links generated:</p>
                       {batchResults.map((l) => (
-                        <div key={l.token} className="flex items-center justify-between text-xs text-green-700">
+                        <div key={l.token} className="flex items-center justify-between text-xs" style={{ color: "var(--ink-700)" }}>
                           <span className="font-medium">{l.resident_id}</span>
                           <button onClick={() => navigator.clipboard.writeText(l.url)}
-                            className="hover:underline" style={{ color: PALETTE.secondary }}>Copy</button>
+                            className="hover:underline" style={{ color: "var(--sage-ink)" }}>Copy</button>
                         </div>
                       ))}
                     </div>
@@ -508,22 +534,27 @@ export default function VoiceDashboardPage() {
 
             {/* QI Flags */}
             {qiFlags.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">QI Integration Flags</h2>
+              <div className="cd-surface p-5">
+                <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--ink-900)", marginBottom: 14 }}>
+                  QI Integration Flags
+                </h2>
                 <div className="space-y-3">
                   {qiFlags.map((f) => (
-                    <div key={f.analysis_id} className="border border-gray-200 rounded-lg p-3">
-                      <p className="font-medium text-gray-900 text-sm">{f.display_name}</p>
-                      {f.qi_flags.map((qi, i) => (
-                        <div key={i} className="mt-1 flex items-start gap-2">
-                          <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                            qi.severity === "red" ? "bg-red-500" : qi.severity === "amber" ? "bg-amber-500" : "bg-green-500"}`} />
-                          <div>
-                            <p className="text-xs font-medium text-gray-700">{qi.qi_category}</p>
-                            <p className="text-xs text-gray-500">{qi.flag}</p>
+                    <div key={f.analysis_id} className="p-3"
+                      style={{ border: "1px solid var(--line-soft)", borderRadius: 10, background: "var(--bg-paper)" }}>
+                      <p className="font-medium text-sm" style={{ color: "var(--ink-900)" }}>{f.display_name}</p>
+                      {f.qi_flags.map((qi, i) => {
+                        const sev = qi.severity === "red" ? "var(--clay)" : qi.severity === "amber" ? "var(--amber)" : "var(--sage)";
+                        return (
+                          <div key={i} className="mt-1 flex items-start gap-2">
+                            <span className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: sev }} />
+                            <div>
+                              <p className="text-xs font-medium" style={{ color: "var(--ink-700)" }}>{qi.qi_category}</p>
+                              <p className="text-xs" style={{ color: "var(--ink-500)" }}>{qi.flag}</p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -531,11 +562,14 @@ export default function VoiceDashboardPage() {
             )}
 
             {/* Password Reset */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Reset Resident Password</h2>
+            <div className="cd-surface p-5">
+              <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--ink-900)", marginBottom: 14 }}>
+                Reset Resident Password
+              </h2>
               <div className="space-y-3">
                 <select value={resetTarget || ""} onChange={(e) => { setResetTarget(e.target.value || null); setResetMsg(""); }}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none">
+                  className="w-full px-4 py-2.5 text-sm outline-none"
+                  style={{ border: "1px solid var(--line)", borderRadius: 10, background: "var(--bg-paper)", color: "var(--ink-900)" }}>
                   <option value="">Select resident...</option>
                   {residents.map((r) => (
                     <option key={r.resident_id} value={r.resident_id}>
@@ -547,12 +581,16 @@ export default function VoiceDashboardPage() {
                   <>
                     <input type="text" value={resetPw} onChange={(e) => setResetPw(e.target.value)}
                       placeholder="New password (min 4 chars)"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none" />
-                    <button onClick={handleResetPassword}
-                      className="w-full py-2.5 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors text-sm">
+                      className="w-full px-4 py-2.5 text-sm outline-none"
+                      style={{ border: "1px solid var(--line)", borderRadius: 10, background: "var(--bg-paper)", color: "var(--ink-900)" }} />
+                    <button onClick={handleResetPassword} className="cd-btn cd-btn-primary w-full justify-center text-sm">
                       Reset Password
                     </button>
-                    {resetMsg && <p className={`text-sm ${resetMsg.includes("success") ? "text-green-600" : "text-red-600"}`}>{resetMsg}</p>}
+                    {resetMsg && (
+                      <p className="text-sm" style={{ color: resetMsg.includes("success") ? "var(--sage-ink)" : "var(--clay-ink)" }}>
+                        {resetMsg}
+                      </p>
+                    )}
                   </>
                 )}
               </div>
@@ -563,52 +601,57 @@ export default function VoiceDashboardPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Detail view */}
             {selectedResident && (
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="cd-surface p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">
+                  <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "var(--ink-900)" }}>
                     {historyData?.profile?.display_name || selectedResident}
                   </h2>
                   <div className="flex items-center gap-3">
                     <a href={getVoiceReport(selectedResident)} target="_blank" rel="noopener noreferrer"
-                      className="text-sm font-medium hover:underline" style={{ color: PALETTE.secondary }}>
+                      className="text-sm font-medium hover:underline" style={{ color: "var(--sage-ink)" }}>
                       Download Report
                     </a>
                     <button onClick={() => { setSelectedResident(null); setHistoryData(null); }}
-                      className="text-sm text-gray-500 hover:text-gray-700">Close</button>
+                      className="text-sm hover:underline" style={{ color: "var(--ink-500)" }}>Close</button>
                   </div>
                 </div>
 
                 {/* Detail tabs */}
-                <div className="flex gap-1 mb-4 border-b border-gray-200">
+                <div className="flex gap-1 mb-4" style={{ borderBottom: "1px solid var(--line)" }}>
                   {[
                     { key: "chart", label: "Trend Chart" },
                     { key: "compare", label: "Baseline Compare" },
                     { key: "profile", label: "Acoustic Profile" },
                     { key: "transcript", label: "Transcript" },
                     { key: "qi", label: "QI Flags" },
-                  ].map(({ key, label }) => (
-                    <button key={key} onClick={() => setDetailTab(key)}
-                      className={`px-3 py-2 text-sm font-medium border-b-2 transition ${
-                        detailTab === key ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
-                      }`}>
-                      {label}
-                    </button>
-                  ))}
+                  ].map(({ key, label }) => {
+                    const active = detailTab === key;
+                    return (
+                      <button key={key} onClick={() => setDetailTab(key)}
+                        className="px-3 py-2 text-sm font-medium transition"
+                        style={{
+                          borderBottom: `2px solid ${active ? "var(--ink-900)" : "transparent"}`,
+                          color: active ? "var(--ink-900)" : "var(--ink-500)",
+                          marginBottom: -1,
+                        }}>
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {historyLoading ? (
-                  <p className="text-sm text-gray-400 py-4">Loading history...</p>
+                  <p className="text-sm py-4" style={{ color: "var(--ink-500)" }}>Loading history...</p>
                 ) : detailTab === "chart" ? (
-                  /* ── Trend LineChart ────────────────────────────────── */
                   chartData.length > 0 ? (
                     <div>
                       <ResponsiveContainer width="100%" height={280}>
                         <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="recording" tick={{ fontSize: 12 }} />
-                          <YAxis tick={{ fontSize: 12 }} />
-                          <Tooltip />
-                          <Legend />
+                          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                          <XAxis dataKey="recording" tick={axisTickStyle} stroke={CHART_GRID} />
+                          <YAxis tick={axisTickStyle} stroke={CHART_GRID} />
+                          <Tooltip {...tooltipStyle} />
+                          <Legend wrapperStyle={legendStyle} />
                           <Line type="monotone" dataKey="speechRate" stroke={PALETTE.secondary} strokeWidth={2} name="Speech Rate" dot={{ r: 4 }} />
                           <Line type="monotone" dataKey="meanPause" stroke={PALETTE.info} strokeWidth={2} name="Mean Pause (s)" dot={{ r: 4 }} />
                           <Line type="monotone" dataKey="pitch" stroke={PALETTE.success} strokeWidth={2} name="Pitch (Hz)" dot={{ r: 3 }} />
@@ -616,83 +659,85 @@ export default function VoiceDashboardPage() {
                         </LineChart>
                       </ResponsiveContainer>
                       {historyData?.analyses?.[0]?.narrative_report && (
-                        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <p className="text-sm font-medium text-gray-700 mb-1">Latest Clinical Narrative</p>
-                          <p className="text-sm text-gray-600">{historyData.analyses[0].narrative_report}</p>
+                        <div className="mt-4 p-4"
+                          style={{ background: "var(--bg-paper)", border: "1px solid var(--line-soft)", borderRadius: 10 }}>
+                          <p className="text-sm font-medium mb-1" style={{ color: "var(--ink-700)" }}>Latest Clinical Narrative</p>
+                          <p className="text-sm" style={{ color: "var(--ink-700)" }}>{historyData.analyses[0].narrative_report}</p>
                         </div>
                       )}
                     </div>
-                  ) : <p className="text-sm text-gray-400 py-4">No analysis data available.</p>
+                  ) : <p className="text-sm py-4" style={{ color: "var(--ink-500)" }}>No analysis data available.</p>
 
                 ) : detailTab === "compare" ? (
-                  /* ── Baseline Compare BarChart ──────────────────────── */
                   barCompareData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={280}>
                       <BarChart data={barCompareData} barGap={4}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip />
-                        <Legend />
+                        <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                        <XAxis dataKey="metric" tick={axisTickStyle} stroke={CHART_GRID} />
+                        <YAxis tick={axisTickStyle} stroke={CHART_GRID} />
+                        <Tooltip {...tooltipStyle} />
+                        <Legend wrapperStyle={legendStyle} />
                         <Bar dataKey="baseline" fill={PALETTE.gray4} name="Baseline" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="latest" fill={PALETTE.secondary} name="Latest" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
-                  ) : <p className="text-sm text-gray-400 py-4">Need at least 2 recordings for comparison.</p>
+                  ) : <p className="text-sm py-4" style={{ color: "var(--ink-500)" }}>Need at least 2 recordings for comparison.</p>
 
                 ) : detailTab === "profile" ? (
-                  /* ── Acoustic Profile RadarChart ────────────────────── */
                   radarData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                       <RadarChart data={radarData}>
-                        <PolarGrid stroke={PALETTE.gray5} />
-                        <PolarAngleAxis dataKey="feature" tick={{ fontSize: 11 }} />
-                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                        <PolarGrid stroke={CHART_GRID} />
+                        <PolarAngleAxis dataKey="feature" tick={axisTickStyle} />
+                        <PolarRadiusAxis domain={[0, 100]} tick={axisTickStyle} />
                         <Radar name="Current" dataKey="value" stroke={PALETTE.secondary} fill={PALETTE.secondary} fillOpacity={0.3} />
                       </RadarChart>
                     </ResponsiveContainer>
-                  ) : <p className="text-sm text-gray-400 py-4">No analysis data available.</p>
+                  ) : <p className="text-sm py-4" style={{ color: "var(--ink-500)" }}>No analysis data available.</p>
 
                 ) : detailTab === "transcript" ? (
-                  /* ── Transcripts ────────────────────────────────────── */
                   <div className="space-y-3">
                     {historyData?.analyses?.filter((a) => a.transcript).length > 0 ? (
-                      historyData.analyses.filter((a) => a.transcript).map((a) => (
-                        <div key={a.analysis_id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <p className="text-xs text-gray-400 mb-1">
-                            {a.created_at?.slice(0, 10)} · <span className={
-                              a.alert_level === "red" ? "text-red-500" : a.alert_level === "amber" ? "text-amber-500" : "text-green-500"
-                            }>{a.alert_level}</span>
-                          </p>
-                          <p className="text-sm text-gray-700 italic">"{a.transcript}"</p>
-                        </div>
-                      ))
+                      historyData.analyses.filter((a) => a.transcript).map((a) => {
+                        const lvlColor = a.alert_level === "red" ? "var(--clay-ink)" : a.alert_level === "amber" ? "var(--amber)" : "var(--sage-ink)";
+                        return (
+                          <div key={a.analysis_id} className="p-4"
+                            style={{ background: "var(--bg-paper)", border: "1px solid var(--line-soft)", borderRadius: 10 }}>
+                            <p className="text-xs mb-1" style={{ color: "var(--ink-500)" }}>
+                              {a.created_at?.slice(0, 10)} · <span style={{ color: lvlColor }}>{a.alert_level}</span>
+                            </p>
+                            <p className="text-sm italic" style={{ color: "var(--ink-700)" }}>"{a.transcript}"</p>
+                          </div>
+                        );
+                      })
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-gray-400">No transcripts available.</p>
-                        <p className="text-sm text-gray-400 mt-1">Transcription requires OpenAI API key.</p>
+                        <p style={{ color: "var(--ink-500)" }}>No transcripts available.</p>
+                        <p className="text-sm mt-1" style={{ color: "var(--ink-500)" }}>Transcription requires OpenAI API key.</p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  /* ── QI Flags ───────────────────────────────────────── */
                   <div className="space-y-3">
                     {qiFlags.filter((f) => f.resident_id === selectedResident).length > 0 ? (
                       qiFlags.filter((f) => f.resident_id === selectedResident).map((f) =>
-                        f.qi_flags.map((qi, i) => (
-                          <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-start gap-3">
-                            <span className={`w-3 h-3 rounded-full mt-0.5 ${
-                              qi.severity === "red" ? "bg-red-500" : qi.severity === "amber" ? "bg-amber-500" : "bg-green-500"}`} />
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{qi.qi_category}</p>
-                              <p className="text-sm text-gray-600">{qi.flag}</p>
-                              <p className="text-xs text-gray-400 mt-1">Indicator: {qi.indicator}</p>
+                        f.qi_flags.map((qi, i) => {
+                          const sev = qi.severity === "red" ? "var(--clay)" : qi.severity === "amber" ? "var(--amber)" : "var(--sage)";
+                          return (
+                            <div key={i} className="p-4 flex items-start gap-3"
+                              style={{ background: "var(--bg-paper)", border: "1px solid var(--line-soft)", borderRadius: 10 }}>
+                              <span className="w-3 h-3 rounded-full mt-0.5" style={{ background: sev }} />
+                              <div>
+                                <p className="text-sm font-medium" style={{ color: "var(--ink-900)" }}>{qi.qi_category}</p>
+                                <p className="text-sm" style={{ color: "var(--ink-700)" }}>{qi.flag}</p>
+                                <p className="text-xs mt-1" style={{ color: "var(--ink-500)" }}>Indicator: {qi.indicator}</p>
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )
                     ) : (
-                      <div className="text-center py-8"><p className="text-gray-400">No QI flags for this resident.</p></div>
+                      <div className="text-center py-8"><p style={{ color: "var(--ink-500)" }}>No QI flags for this resident.</p></div>
                     )}
                   </div>
                 )}
@@ -700,28 +745,30 @@ export default function VoiceDashboardPage() {
             )}
 
             {/* ── Residents Table ───────────────────────────────────── */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="cd-surface p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Residents ({residents.length})</h2>
+                <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--ink-900)" }}>
+                  Residents ({residents.length})
+                </h2>
                 <input type="text" value={tableSearch} onChange={(e) => setTableSearch(e.target.value)}
                   placeholder="Search by name or ID..."
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm w-56
-                             focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none" />
+                  className="px-3 py-1.5 text-sm w-56 outline-none"
+                  style={{ border: "1px solid var(--line)", borderRadius: 10, background: "var(--bg-paper)", color: "var(--ink-900)" }} />
               </div>
 
               {loading ? (
-                <p className="text-sm text-gray-400">Loading residents...</p>
+                <p className="text-sm" style={{ color: "var(--ink-500)" }}>Loading residents...</p>
               ) : filteredResidents.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-400">
+                  <p style={{ color: "var(--ink-500)" }}>
                     {residents.length === 0 ? "No residents screened yet." : "No results match your search."}
                   </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="cd-table w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-200">
+                      <tr>
                         {[
                           { col: "display_name", label: "Resident" },
                           { col: "alert_level", label: "Status" },
@@ -731,11 +778,11 @@ export default function VoiceDashboardPage() {
                           { col: "recordings", label: "Recordings" },
                         ].map(({ col, label }) => (
                           <th key={col} onClick={() => toggleSort(col)}
-                            className="text-left py-2.5 px-3 font-semibold text-gray-600 cursor-pointer hover:text-gray-900 select-none whitespace-nowrap">
+                            className="text-left cursor-pointer select-none whitespace-nowrap">
                             {label}<SortIcon col={col} />
                           </th>
                         ))}
-                        <th className="text-right py-2.5 px-3 font-semibold text-gray-600">Actions</th>
+                        <th className="text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -743,51 +790,50 @@ export default function VoiceDashboardPage() {
                         const level = r.latest_analysis?.alert_level || "green";
                         const f = r.latest_analysis?.acoustic_features || {};
                         const dev = r.latest_analysis?.risk_scores?.overall_deviation_pct;
+                        const lvlDot = level === "red" ? "var(--clay)" : level === "amber" ? "var(--amber)" : "var(--sage)";
+                        const pillBg = level === "red" ? "var(--bg-clay-tint)" : level === "amber" ? "var(--bg-paper)" : "var(--bg-sage-tint)";
+                        const pillInk = level === "red" ? "var(--clay-ink)" : level === "amber" ? "var(--amber)" : "var(--sage-ink)";
+                        const isSel = selectedResident === r.resident_id;
                         return (
                           <tr key={r.profile_id}
-                            className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                              selectedResident === r.resident_id ? "bg-primary-light" : ""}`}
+                            className="cursor-pointer transition-colors"
+                            style={{ background: isSel ? "var(--bg-sage-tint)" : "transparent" }}
                             onClick={() => handleViewHistory(r.resident_id)}>
-                            <td className="py-3 px-3">
+                            <td>
                               <div className="flex items-center gap-2">
-                                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                                  level === "red" ? "bg-red-500" : level === "amber" ? "bg-amber-500" : "bg-green-500"}`} />
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: lvlDot }} />
                                 <div>
-                                  <p className="font-medium text-gray-900">{r.display_name || r.resident_id}</p>
-                                  <p className="text-xs text-gray-400">{r.resident_id}</p>
+                                  <p className="font-medium" style={{ color: "var(--ink-900)" }}>{r.display_name || r.resident_id}</p>
+                                  <p className="text-xs" style={{ color: "var(--ink-500)" }}>{r.resident_id}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3 px-3">
-                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                level === "red" ? "bg-red-100 text-red-700"
-                                : level === "amber" ? "bg-amber-100 text-amber-700"
-                                : "bg-green-100 text-green-700"}`}>
+                            <td>
+                              <span className="text-xs font-medium px-2 py-1 rounded-full"
+                                style={{ background: pillBg, color: pillInk }}>
                                 {level === "red" ? "Alert" : level === "amber" ? "Monitor" : "Normal"}
                               </span>
                             </td>
-                            <td className="py-3 px-3 font-mono text-gray-700">
+                            <td style={{ fontFamily: "var(--font-mono)", color: "var(--ink-700)" }}>
                               {f.speech_rate_proxy != null ? `${f.speech_rate_proxy}/s` : "—"}
                             </td>
-                            <td className="py-3 px-3 font-mono text-gray-700">
+                            <td style={{ fontFamily: "var(--font-mono)", color: "var(--ink-700)" }}>
                               {f.mean_pause_duration_s != null ? f.mean_pause_duration_s.toFixed(2) : "—"}
                             </td>
-                            <td className="py-3 px-3">
+                            <td>
                               {dev != null ? (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full ${
-                                      level === "red" ? "bg-red-500" : level === "amber" ? "bg-amber-500" : "bg-green-500"}`}
-                                      style={{ width: `${Math.min(100, dev)}%` }} />
+                                  <div className="w-16 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-cream)" }}>
+                                    <div className="h-full rounded-full" style={{ background: lvlDot, width: `${Math.min(100, dev)}%` }} />
                                   </div>
-                                  <span className="text-xs text-gray-600 font-mono">{dev.toFixed(0)}%</span>
+                                  <span className="text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-700)" }}>{dev.toFixed(0)}%</span>
                                 </div>
                               ) : "—"}
                             </td>
-                            <td className="py-3 px-3 text-gray-700">{r.recording_count || 0}</td>
-                            <td className="py-3 px-3 text-right">
+                            <td style={{ color: "var(--ink-700)" }}>{r.recording_count || 0}</td>
+                            <td className="text-right">
                               <button onClick={(e) => { e.stopPropagation(); handleViewHistory(r.resident_id); }}
-                                className="text-xs font-medium hover:underline" style={{ color: PALETTE.secondary }}>
+                                className="text-xs font-medium hover:underline" style={{ color: "var(--sage-ink)" }}>
                                 View
                               </button>
                             </td>
@@ -803,7 +849,7 @@ export default function VoiceDashboardPage() {
         </div>
 
         {/* Disclaimer */}
-        <p className="mt-8 text-xs text-gray-400 text-center">
+        <p className="mt-8 text-xs text-center" style={{ color: "var(--ink-500)" }}>
           This analysis is a clinical decision support tool. It does not constitute a diagnosis.
           All flagged conditions require clinical assessment by a qualified health professional.
         </p>
@@ -813,11 +859,19 @@ export default function VoiceDashboardPage() {
   );
 }
 
-function SummaryCard({ label, value, color = "text-gray-900" }) {
+function SummaryCard({ label, value, tone = "ink" }) {
+  const color =
+    tone === "clay" ? "var(--clay-ink)"
+    : tone === "amber" ? "var(--amber)"
+    : tone === "sage" ? "var(--sage-ink)"
+    : tone === "blue" ? "var(--blue-ink)"
+    : "var(--ink-900)";
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <p className="text-sm text-gray-500 font-medium">{label}</p>
-      <p className={`text-3xl font-bold mt-1 ${color}`}>{value}</p>
+    <div className="cd-kpi p-5">
+      <p className="text-sm font-medium" style={{ color: "var(--ink-500)" }}>{label}</p>
+      <p className="mt-1" style={{ fontFamily: "var(--font-serif)", fontSize: 30, color, letterSpacing: "-0.01em", lineHeight: 1 }}>
+        {value}
+      </p>
     </div>
   );
 }

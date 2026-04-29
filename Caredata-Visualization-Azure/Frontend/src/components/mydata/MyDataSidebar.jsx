@@ -1,94 +1,124 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, Database, Settings, FileText, History } from "lucide-react";
+import {
+  LayoutGrid,
+  Database,
+  Settings,
+  FileText,
+  History,
+  ShieldCheck,
+} from "lucide-react";
+
+const SECTIONS = [
+  {
+    heading: "Workspace",
+    items: [
+      { label: "My Data", icon: Database, key: "My Data", to: "/mydata" },
+      { label: "Personal dashboard", icon: LayoutGrid, key: "Dashboard", to: "/health-dashboard" },
+      { label: "Uploaded history", icon: History, key: "Uploaded History", to: "/uploaded-history" },
+    ],
+  },
+  {
+    heading: "Support",
+    items: [
+      { label: "Settings", icon: Settings, key: "Settings", to: "/settings" },
+      { label: "Documentation", icon: FileText, key: "Documentation", to: "/documentation" },
+    ],
+  },
+];
 
 export default function MyDataSidebar({ activePage = "Dashboard" }) {
   const navigate = useNavigate();
 
   return (
     <aside
-      className="bg-white border border-gray-200 rounded-xl shadow-sm
-                 p-4 overflow-y-auto
-                 w-56 md:w-60 lg:w-64
-                 max-h-[85vh]"
+      className="shrink-0 self-start"
+      style={{
+        background: "var(--bg-white)",
+        border: "1px solid var(--line)",
+        borderRadius: "var(--r-lg)",
+        padding: "18px 14px",
+        width: 240,
+        position: "sticky",
+        top: 88,
+      }}
     >
-      {/* Top Section */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-600 mb-3 tracking-wide">
-          MENU
-        </h2>
-        <ul className="space-y-2">
-          <li
-            onClick={() => navigate("/mydata")}
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
-              ${
-                activePage === "My Data"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-100"
-              }`}
+      {SECTIONS.map((section, sIdx) => (
+        <div key={section.heading}>
+          {sIdx > 0 && (
+            <div
+              style={{
+                height: 1,
+                background: "var(--line-soft)",
+                margin: "14px 4px",
+              }}
+            />
+          )}
+          <div
+            className="uppercase"
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              color: "var(--ink-500)",
+              padding: "8px 12px 6px",
+            }}
           >
-            <Database size={16} />
-            My Data
-          </li>
+            {section.heading}
+          </div>
+          {section.items.map((item) => {
+            const Icon = item.icon;
+            const active = activePage === item.key;
+            return (
+              <div
+                key={item.key}
+                onClick={() => navigate(item.to)}
+                className="cursor-pointer flex items-center gap-2.5 transition"
+                style={{
+                  padding: "9px 12px",
+                  fontSize: 14,
+                  borderRadius: 10,
+                  color: active ? "var(--ink-900)" : "var(--ink-700)",
+                  background: active ? "var(--bg-sage-tint)" : "transparent",
+                  fontWeight: active ? 500 : 400,
+                  boxShadow: active ? "inset 0 0 0 1px var(--sage)" : "none",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.background = "var(--bg-cream)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <Icon
+                  size={16}
+                  style={{ color: active ? "var(--sage-ink)" : "var(--ink-500)" }}
+                />
+                <span>{item.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      ))}
 
-          <li
-            onClick={() => navigate("/health-dashboard")}
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
-              ${
-                activePage === "Dashboard"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
-            <LayoutGrid size={16} />
-            Dashboard
-          </li>
-
-          <li
-            onClick={() => navigate("/uploaded-history")}
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
-              ${
-                activePage === "Uploaded History"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
-            <History size={16} />
-            Uploaded History
-          </li>
-        </ul>
-
-        <hr className="my-4 border-gray-200" />
-
-        <h2 className="text-sm font-semibold text-gray-600 mb-3 tracking-wide">
-          HELP
-        </h2>
-        <ul className="space-y-2">
-          <li
-            onClick={() => navigate("/settings")}
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
-              ${
-                activePage === "Settings"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
-            <Settings size={16} />
-            Settings
-          </li>
-
-          <li
-            onClick={() => navigate("/documentation")}
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition
-              ${
-                activePage === "Documentation"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
-            <FileText size={16} />
-            Documentation
-          </li>
-        </ul>
+      {/* Compliance card */}
+      <div
+        className="mt-5"
+        style={{
+          padding: 14,
+          borderRadius: 12,
+          background: "var(--bg-sage-tint)",
+          border: "1px solid var(--line-soft)",
+        }}
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <ShieldCheck size={14} style={{ color: "var(--sage-ink)" }} />
+          <span className="text-xs font-semibold" style={{ color: "var(--ink-900)" }}>
+            FHIR-aligned
+          </span>
+        </div>
+        <p className="text-[11px] leading-relaxed" style={{ color: "var(--ink-500)" }}>
+          Data handled per Australian Digital Health Agency standards.
+        </p>
       </div>
     </aside>
   );

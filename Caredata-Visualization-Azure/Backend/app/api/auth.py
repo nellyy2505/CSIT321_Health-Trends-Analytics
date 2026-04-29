@@ -68,6 +68,8 @@ def register(body: RegisterBody):
         if "already registered" in str(e).lower():
             raise HTTPException(status_code=400, detail="Email already registered") from e
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Registration failed. Please try again later.") from e
 
     # Generate verification token and send email
     token = verification_store.create_token(email)
