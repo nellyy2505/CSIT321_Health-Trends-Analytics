@@ -10,7 +10,7 @@ import {
   deleteHealthScan,
   clearHealthScanHistory,
 } from "../../services/api";
-import { Trash2, RotateCcw, FileSpreadsheet, Scan } from "lucide-react";
+import { Trash2, RotateCcw, FileSpreadsheet, Scan } from "../../icons/lucideBundle";
 
 function formatDate(iso) {
   if (!iso) return "—";

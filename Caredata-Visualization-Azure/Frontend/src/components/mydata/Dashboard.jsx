@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, Search, Sparkles, ArrowUpFromLine } from "lucide-react";
+import { ChevronDown, Search, Sparkles, ArrowUpFromLine } from "../../icons/lucideBundle";
 import Navbar from "../common/Navbar";
 import Footer from "../common/Footer";
 import MyDataSidebar from "./MyDataSidebar";

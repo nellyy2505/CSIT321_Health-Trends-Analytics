@@ -15,7 +15,7 @@ import {
   X,
   Plus,
   Trash2,
-} from "lucide-react";
+} from "../icons/lucideBundle";
 import { HEALTH_SCAN_RESULT_KEY } from "../constants";
 import { getMyData, saveMyData, getHealthScanHistory } from "../services/api";
 

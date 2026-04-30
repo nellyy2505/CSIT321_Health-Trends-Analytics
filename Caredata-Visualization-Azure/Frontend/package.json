@@ -10,6 +10,7 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.12.2",
+    "es-toolkit": "^1.46.1",
     "framer-motion": "^12.23.24",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
@@ -48,6 +49,8 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
+    "browserslist": "^4.28.2",
+    "caniuse-lite": "^1.0.30001791",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",
     "vite": "^6.4.0"

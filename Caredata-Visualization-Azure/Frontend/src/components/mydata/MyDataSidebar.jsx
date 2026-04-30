@@ -6,7 +6,7 @@ import {
   FileText,
   History,
   ShieldCheck,
-} from "lucide-react";
+} from "../../icons/lucideBundle";
 
 const SECTIONS = [
   {
