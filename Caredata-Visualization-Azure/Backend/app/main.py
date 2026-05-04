@@ -11,6 +11,9 @@ origins = [
     "http://127.0.0.1:5173",
     "https://d2vw6ry5du4tco.cloudfront.net",
     "https://care-data-portal.netlify.app",
+    "https://www.caredataportal.com",
+    "https://caredataportal.com",
+    "https://ashy-sky-00ee6c400.7.azurestaticapps.net",
 ]
 app.add_middleware(
     CORSMiddleware,
