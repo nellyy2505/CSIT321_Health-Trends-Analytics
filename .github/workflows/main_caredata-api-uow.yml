@@ -1,5 +1,6 @@
 # Docs: https://github.com/Azure/webapps-deploy
-# Backend code: Caredata-Visualization-Azure/Backend (not repo root).
+# Build uses Caredata-Visualization-Azure/Backend. Deploy package is "." because
+# upload-artifact uploads directory *contents*; download lands app + requirements at workspace root.
 
 name: Build and deploy Python app to Azure Web App - caredata-api-uow
 
@@ -57,11 +58,6 @@ jobs:
         with:
           name: python-app
 
-      - name: List deployed tree (debug)
-        shell: bash
-        run: |
-          find "${GITHUB_WORKSPACE}" -maxdepth 5 -type f 2>/dev/null | head -40
-
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -75,4 +71,4 @@ jobs:
         with:
           app-name: "caredata-api-uow"
           slot-name: "Production"
-          package: Caredata-Visualization-Azure/Backend
+          package: .
